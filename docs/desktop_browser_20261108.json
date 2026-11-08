@@ -1,0 +1,53 @@
+{
+  "passed": true,
+  "rows": [
+    {
+      "engine": "chromium",
+      "checks": [
+        "SID desktop toolbar, Pin, lazy editable Web sources",
+        "both actual SID WASM models, combined waveform and independent channel banks",
+        "fixed-channel Legato returns to a held key; setup saves keyboard mode",
+        "native final PCM tap, monitors retained, explicit output switch stops keys and Pitch",
+        "native SID song preview follows its separate context; Live inactive fields, Pause and Resume",
+        "song Stop and keyboard handoff keep Native selected without duplicate speaker routes",
+        "Stop during delayed native preview setup disposes its stale session before playback",
+        "native failure falls back safely and preserves editable patches; Web output restores",
+        "native save cancellation and narrow window remain usable"
+      ],
+      "passed": true,
+      "mobileOverflow": 0,
+      "nativeCredits": 9,
+      "nativePrefillPackets": 4,
+      "nativePackets": 67,
+      "nativePeak": 0.05519232898950577,
+      "nativeFinite": true,
+      "audioContexts": 4,
+      "nativeHost": "mocked Tauri IPC; no CPAL device",
+      "physicalOutput": "muted"
+    },
+    {
+      "engine": "webkit",
+      "checks": [
+        "SID desktop toolbar, Pin, lazy editable Web sources",
+        "both actual SID WASM models, combined waveform and independent channel banks",
+        "fixed-channel Legato returns to a held key; setup saves keyboard mode",
+        "native final PCM tap, monitors retained, explicit output switch stops keys and Pitch",
+        "native SID song preview follows its separate context; Live inactive fields, Pause and Resume",
+        "song Stop and keyboard handoff keep Native selected without duplicate speaker routes",
+        "Stop during delayed native preview setup disposes its stale session before playback",
+        "native failure falls back safely and preserves editable patches; Web output restores",
+        "native save cancellation and narrow window remain usable"
+      ],
+      "passed": true,
+      "mobileOverflow": 0,
+      "nativeCredits": 9,
+      "nativePrefillPackets": 4,
+      "nativePackets": 49,
+      "nativePeak": 0.06309261173009872,
+      "nativeFinite": true,
+      "audioContexts": 4,
+      "nativeHost": "mocked Tauri IPC; no CPAL device",
+      "physicalOutput": "muted"
+    }
+  ]
+}

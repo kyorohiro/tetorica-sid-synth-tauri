@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Tetorica SID Synth: explore 6581 and 8580 Preview models, three voices, pulse width, ADSR and the shared SID filter. Play, edit and take the readable code.">
+  <meta name="theme-color" content="#e5dbc4">
+  <meta name="application-name" content="Tetorica SID Synth">
+  <meta name="apple-mobile-web-app-title" content="Tetorica SID Synth">
+  <title>Tetorica SID Synth</title>
+  <link rel="icon" type="image/webp" href="./tetorica_sid_synth.webp">
+  <link rel="apple-touch-icon" href="./tetorica_sid_synth.webp">
+  <link rel="stylesheet" href="./synth-sid/synth.css?sid-keys=1">
+</head>
+<body>
+<main>
+  <header class="masthead">
+    <a class="laboratory-link" href="https://kyorohiro.github.io/hello_ymfm_wasm/index.html">Tetorica <span>Sound Laboratory</span></a>
+    <nav aria-label="Sound Laboratory"><a href="https://kyorohiro.github.io/hello_ymfm_wasm/sid-player/index.html">SID Player</a><a href="https://kyorohiro.github.io/hello_ymfm_wasm/synth/index.html">FM2612 Synth</a><a href="https://kyorohiro.github.io/hello_ymfm_wasm/synth-spu/index.html">SPU Synth</a><a href="https://kyorohiro.github.io/hello_ymfm_wasm/playground/index.html?mode=c64">Playground</a></nav>
+  </header>
+  <article class="synth-shell" aria-labelledby="synthTitle" data-product-id="tetorica-sid-synth">
+    <header class="synth-heading">
+      <div class="title-row">
+        <div class="product-identity">
+          <img class="product-icon" src="./tetorica_sid_synth.webp" width="112" height="112" alt="" decoding="async">
+          <div class="product-copy"><p class="eyebrow">THREE VOICES · ONE SHARED FILTER</p><h1 id="synthTitle">Tetorica <span class="product-name">SID Synth</span></h1><p class="description">Play the SID. Shape the filter. Take the code.</p></div>
+        </div>
+        <span class="engine-badge"><b id="sidModelBadge">6581</b> <span id="sidModelStatus">PAL · APPROXIMATION</span></span>
+      </div>
+      <div class="audio-toolbar">
+        <div class="transport-actions"><button id="startAudio" class="primary" type="button">Enable audio</button><button id="stopAudio" type="button">Stop all sound</button></div>
+        <label class="master-control" for="masterVolume"><span>Master</span><input id="masterVolume" type="range" min="0" max="3.8" step="0.01" value="0.7" aria-label="Master volume, 0 to 380 percent"><output id="masterVolumeValue" for="masterVolume">70%</output></label>
+      </div>
+      <p id="audioStatus" class="audio-status" role="status" aria-live="polite">Enable audio, then play the keyboard. Editing does not start audio.</p>
+    </header>
+
+    <details id="sidImportTools" class="sid-card sid-import-tools" open><summary>Sounds from SID</summary>
+      <div class="sid-card-content">
+        <div class="sid-import-actions"><button id="loadSidSound" class="primary" type="button">Load SID…</button><button id="sidImportPlay" type="button" disabled>Play song</button><button id="sidImportPause" type="button" disabled>Pause</button><button id="sidImportStop" type="button" disabled>Stop song</button><button id="sidImportCapture" type="button" disabled>Capture voices</button></div>
+        <input id="sidSoundFileInput" class="file-input" type="file" accept=".sid,audio/prs.sid,application/octet-stream" aria-label="Choose a SID song for voice capture">
+        <p id="sidImportInfo" class="sid-help">Open a SID file, play the song, then capture a voice for this keyboard.</p>
+        <div class="sid-import-options">
+          <div class="sid-import-subtune" role="group" aria-label="SID subtune"><span>Subtune</span><button id="sidImportSubtuneDown" type="button" aria-label="Previous SID subtune" disabled>−</button><output id="sidImportSubtuneValue">—</output><button id="sidImportSubtuneUp" type="button" aria-label="Next SID subtune" disabled>+</button></div>
+          <div class="sid-choice-group sid-import-models" role="group" aria-label="SID song model"><button type="button" data-sid-import-model="auto" aria-pressed="true">Auto · file</button><button type="button" data-sid-import-model="6581" aria-pressed="false">6581</button><button type="button" data-sid-import-model="8580" aria-pressed="false">8580 · Preview</button></div>
+        </div>
+        <p id="sidImportStatus" class="sid-help sid-import-status" role="status" aria-live="polite" data-state="idle" data-error="false">Choose a local SID file. Loading alone does not start audio or replace your sound.</p>
+        <p id="sidImportCaptureInfo" class="sid-help">No snapshot yet. Capture voices, then select a Voice to load it into this keyboard.</p>
+        <div class="sid-choice-group sid-import-voices" role="group" aria-label="Captured SID voice, select to load"><button type="button" data-sid-import-voice="0" aria-pressed="true" disabled>Voice 1</button><button type="button" data-sid-import-voice="1" aria-pressed="false" disabled>Voice 2</button><button type="button" data-sid-import-voice="2" aria-pressed="false" disabled>Voice 3</button></div>
+        <p id="sidImportVoicePreview" class="sid-help sid-import-preview">No snapshot captured.</p>
+        <details class="sid-inline-help"><summary class="sid-help-button" aria-label="About SID voice import">?</summary><div class="sid-help-panel">
+          <p class="sid-help">An instantaneous voice snapshot. Playing a Synth key restarts pitch and ADSR; elapsed Envelope, phase and later song automation are not restored. Independent Sync / Ring pairs retain their frequency ratio. Some waveforms and connections are unavailable with a reason.</p>
+          <p class="sid-help">Pause holds the song and its current channel settings. Inspect CH 1 / 2 / 3 or Capture voices while paused, then Resume to continue from that position. Selecting a captured Voice stops the preview and loads the keyboard instrument.</p>
+          <p class="sid-help">PAL · one SID · supported PSID / RSID v2 · built-in C64 environment. Unknown/either hints use PAL / 6581 in Auto. For Direct VBI or your C64 ROMs, use <a href="https://kyorohiro.github.io/hello_ymfm_wasm/sid-player/index.html">SID Player</a> and save a preset.</p>
+        </div></details>
+      </div>
+    </details>
+
+    <section class="spu-monitor sid-monitor" aria-label="Live output monitor">
+      <div class="visual-mode-controls" role="group" aria-label="Audio visualization"><button type="button" data-visual-mode="waveform" aria-pressed="true">Waveform</button><button type="button" data-visual-mode="spectrum" aria-pressed="false">Spectrum</button></div>
+      <p>Live output after Master volume.</p>
+      <div class="monitor-body"><div class="monitor-plot"><canvas id="outputCanvas" width="900" height="180" role="img" aria-label="Live SID audio visualization"></canvas></div>
+        <label class="monitor-pitch" for="pitchBend" title="Software pitch bend, ±2 semitones. Release to return to center."><span>Pitch</span><input id="pitchBend" type="range" min="-2" max="2" step="0.01" value="0" orient="vertical" aria-label="Display pitch bend, minus two to plus two semitones"><output id="pitchValue" for="pitchBend">+0.00</output></label>
+      </div>
+    </section>
+
+    <section class="sid-workspace" aria-labelledby="voiceHeading">
+      <div class="section-heading"><h2 id="voiceHeading">Your sound</h2><p id="patchStatus" role="status">Ready · edits apply automatically.</p></div>
+      <div id="sidLiveTools" class="sid-live-tools">
+        <div class="sid-live-controls" role="group" aria-label="Channel settings and automatic song updates">
+          <div id="sidLiveChannels" class="sid-live-channels" role="group" aria-labelledby="sidLiveChannelLabel">
+            <span id="sidLiveChannelLabel" class="sid-live-channel-label">Edit &amp; play</span>
+            <div class="sid-choice-group"><button type="button" data-sid-live-voice="0" aria-pressed="false">CH 1</button><button type="button" data-sid-live-voice="1" aria-pressed="false">CH 2</button><button type="button" data-sid-live-voice="2" aria-pressed="false">CH 3</button><button type="button" data-sid-live-voice="round-robin" aria-pressed="true">Round robin</button></div>
+          </div>
+          <div id="sidKeyboardMode" class="sid-keyboard-mode" role="group" aria-labelledby="sidKeyboardModeLabel">
+            <span id="sidKeyboardModeLabel" class="sid-live-channel-label">Keyboard · software</span>
+            <div class="sid-choice-group"><button type="button" data-sid-keyboard-mode="retrigger" aria-pressed="true" disabled>Retrigger</button><button type="button" data-sid-keyboard-mode="legato" aria-pressed="false" disabled>Legato</button></div>
+          </div>
+          <label class="sid-check"><input id="sidLiveEnabled" type="checkbox" checked> Auto update from song</label>
+        </div>
+        <p id="sidChannelState" class="sid-help" hidden>CH settings differ · edits apply to all.</p>
+        <details class="sid-inline-help"><summary class="sid-help-button" aria-label="About channel selection and automatic updates">?</summary><div class="sid-help-panel">
+          <p class="sid-help">CH 1 / 2 / 3 selects both the settings to edit and the physical channel played by the keyboard. Round robin keeps each channel's sound and allocates keys between them. When values differ, editing uses CH 1 as a reference. Changing a setting applies that setting to all three channels. Loading a voice preset replaces the complete sound on all three. Filter and model are shared hardware settings.</p>
+          <p class="sid-help">Auto update follows the selected SID song channel during playback or Pause. Playable settings are also kept for this keyboard; turn Auto update off to edit them. Round robin follows the last explicitly selected song CH and applies its playable settings to all three channels. Unsupported raw settings remain visible without replacing the last playable sound.</p>
+          <p class="sid-help">Keyboard mode is a software performance setting for fixed CHs. Retrigger lowers and raises Gate for each new note. Legato keeps Gate high while keys overlap and returns to the last key still held; ADSR does not restart. Round robin uses Retrigger and retains your fixed-CH choice. No software envelope reset is added: very fast retriggers at Sustain 15 keep the SID hardware's envelope timing behavior.</p>
+        </div></details>
+      </div>
+      <div id="voiceEditor" class="sid-editor"></div>
+      <div id="sidLiveView" hidden></div>
+      <p id="voiceCapacity" class="sid-capacity">3 voices · round robin · 0 held</p>
+    </section>
+
+    <details id="presetTools" class="sid-card preset-tools"><summary>Preset · save, load and JavaScript</summary>
+      <div class="sid-card-content preset-actions">
+        <label class="instrument-name-control" for="instrumentName">Name <input id="instrumentName" type="text" maxlength="80" value="Saw" autocomplete="off"></label>
+        <button id="savePreset" type="button">Save voice preset…</button><button id="saveChannelSettings" type="button">Save channel setup…</button><button id="loadPreset" type="button">Load preset / setup…</button><button id="resetPreset" type="button">Reset</button><button id="copyCode" type="button">Copy JavaScript</button>
+        <input id="presetFileInput" class="file-input" type="file" accept=".json,application/json" aria-label="Choose a SID voice preset">
+        <textarea id="codeOutput" readonly hidden spellcheck="false" aria-label="Readable SID voice JavaScript"></textarea>
+        <p class="sid-help">Voice preset saves the current sound. Channel setup also saves all three channels and Edit &amp; play selection. JSON up to 64 KiB; loading resets held notes and Pitch. JavaScript uses the selected physical channel in Playground C64 mode.</p>
+      </div>
+    </details>
+
+    <section class="keyboard-section" aria-labelledby="keyboardHeading">
+      <div class="section-heading"><h2 id="keyboardHeading">Keyboard</h2><p>Every key plays this sound. No keyboard split.</p></div>
+      <div class="keyboard-toolbar"><div class="octave-control" role="group" aria-label="Keyboard octave"><button id="octaveDown" type="button" aria-label="Lower keyboard by one octave">−</button><span>Octave <output id="octaveValue">+0</output></span><button id="octaveUp" type="button" aria-label="Raise keyboard by one octave">+</button></div><p class="keyboard-hint">When full, the oldest held note is replaced.</p></div>
+      <div id="keyboardFretboard"></div>
+      <div class="performance-keyboard"><label class="monitor-pitch keyboard-wheel" for="keyboardPitchBend" title="Software pitch bend, ±2 semitones. Release to return to center."><span>Pitch</span><input id="keyboardPitchBend" type="range" min="-2" max="2" step="0.01" value="0" orient="vertical" aria-label="Keyboard pitch bend, minus two to plus two semitones"><output id="keyboardPitchValue" for="keyboardPitchBend">+0.00</output></label><div id="keyboard" class="keyboard-mount"></div></div>
+    </section>
+    <footer><p>CPU-free keyboard SID approximations · PAL 985,248 Hz · chips/m6581 and sidera 8580 Preview. SID song preview runs a separate C64 program only while requested. Waveforms, ADSR, Sync, Ring and the shared filter are SID controls. Round robin, note mapping, Pitch and modulator ratio are software performance tools. A software DC blocker follows the core. Native output is separate work.</p><div><a href="https://kyorohiro.github.io/hello_ymfm_wasm/playground/index.html?mode=c64">Open Playground</a> · <a href="https://kyorohiro.github.io/hello_ymfm_wasm/sid.md">SID guide</a> · <a href="./synth-sid/synth.js">Application source</a> · <a href="https://github.com/kyorohiro/hello_ymfm_wasm/blob/main/tetorica_src/runtime/sidsynth.js">SID API source</a></div></footer>
+  </article>
+  <noscript><p>Enable JavaScript to play this synthesizer.</p></noscript>
+</main>
+<script type="module" src="./synth-sid/synth.js?sid-transport=2&amp;sid-channels=3&amp;sid-waves=1&amp;sid-keys=1&amp;sid-desktop=1"></script>
+</body>
+</html>

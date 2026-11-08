@@ -1,0 +1,50 @@
+{
+  "desktop/desktop-interface.js": {
+    "bytes": 12831,
+    "sha256": "21b8816290432575d28ea43e300ab00fcf2181dc873ab912f0da381244e3b198"
+  },
+  "desktop/audio-interface.js": {
+    "bytes": 18951,
+    "sha256": "f75a49b0f0676efdae518728f1c90f01bd9595480a347669e1a5a464d69809af"
+  },
+  "desktop/audio-worklet.js": {
+    "bytes": 5232,
+    "sha256": "d53d1b7909390406e48467485aefb8c835613b1cb7ed7d1f20cc94dd4aa8fd71"
+  },
+  "desktop/synth-bridge.js": {
+    "bytes": 658,
+    "sha256": "95656052b780625cdf297335c778596d7d536f116df0c8f0a58de7e5b56493ec"
+  },
+  "src-tauri/src/main.rs": {
+    "bytes": 23997,
+    "sha256": "051b49a6aaa686c3000cc1e9f0579614a4c72f0ea1ba127c211955075cffc8b9"
+  },
+  "src-tauri/src/audio.rs": {
+    "bytes": 46368,
+    "sha256": "0bb773a5fa8a15bbd076716ccfeffddb29ad0de4ec0d895fc101b8703a3428a7"
+  },
+  "src-tauri/Cargo.toml": {
+    "bytes": 413,
+    "sha256": "8a258cb95af9e401d8b22591cb12c5a6b2ef682f9a8204572335810dbd4f2cd2"
+  },
+  "src-tauri/Cargo.lock": {
+    "bytes": 120785,
+    "sha256": "a3f36406e6320924f80d67423bcaf3fa5207fa495134c84b0cfecee0f2df3dc8"
+  },
+  "src-tauri/tauri.conf.json": {
+    "bytes": 960,
+    "sha256": "9cf49160c3b1edc624ba23645a72849cfbf310784e771eeb02ab8479ddd9f9fb"
+  },
+  "package.json": {
+    "bytes": 1009,
+    "sha256": "b973e84260e1b8965e68d310d9dd09b9f3b36bf4386b5749df432c10a2f323f3"
+  },
+  "package-lock.json": {
+    "bytes": 8256,
+    "sha256": "5c47494f62fd1012b57448a1e0a3cc8c7ee0e45ec40c94ad2d18c030e3b2cc5a"
+  },
+  "scripts/import_release.py": {
+    "bytes": 35960,
+    "sha256": "b23cd36a27af1bb571bab2e7b1a184231668b4299bfb42534fec8e0bf33fb3b4"
+  }
+}

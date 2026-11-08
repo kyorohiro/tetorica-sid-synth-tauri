@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "startedDateJst": "2026-11-08",
+  "finishedDateJst": "2026-11-09",
+  "passed": true,
+  "desktopVersion": "0.0.1",
+  "buildCommand": "npm run build -- --target TARGET --bundles app --no-sign -- --locked",
+  "rows": [
+    {
+      "target": "aarch64-apple-darwin",
+      "app": "src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Tetorica SID Synth.app",
+      "architectures": "arm64",
+      "version": "0.0.1",
+      "identifier": "net.tetorica.synth-sid",
+      "executableBytes": 12075008,
+      "executableSha256": "246d97b3d96552de0f549ab3dac016c4855cbbca7b469e8896669af09d0ff6f5",
+      "signingRequested": false,
+      "notarizationRequested": false,
+      "signatureDetails": [
+        "Executable=${REPO}/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Tetorica SID Synth.app/Contents/MacOS/tetorica-sid-synth-tauri",
+        "Identifier=tetorica_sid_synth_tauri-dd5397ad1201b9be",
+        "Format=app bundle with Mach-O thin (arm64)",
+        "CodeDirectory v=20400 size=93768 flags=0x20002(adhoc,linker-signed) hashes=2926+0 location=embedded",
+        "Signature=adhoc",
+        "Info.plist=not bound",
+        "TeamIdentifier=not set",
+        "Sealed Resources=none",
+        "Internal requirements=none"
+      ],
+      "launched": true
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "app": "src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Tetorica SID Synth.app",
+      "architectures": "x86_64",
+      "version": "0.0.1",
+      "identifier": "net.tetorica.synth-sid",
+      "executableBytes": 12317308,
+      "executableSha256": "19883fd2116dada2716da9e9f02450f31898a4d48f5b0a71477c5b5ea384097d",
+      "signingRequested": false,
+      "notarizationRequested": false,
+      "signatureDetails": [
+        "src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Tetorica SID Synth.app: code object is not signed at all"
+      ],
+      "launched": false
+    }
+  ],
+  "actualArmAppChecks": [
+    "tauri://localhost startup and expected SID controls",
+    "Menu import/export/audio output entries",
+    "Pin native confirmed On then Off",
+    "Native output connected at 44100 Hz with no notes played",
+    "Returned to Web Audio and left Pin off"
+  ],
+  "listeningPerformed": false,
+  "longRunPerformed": false,
+  "hostedCiExecuted": false
+}
