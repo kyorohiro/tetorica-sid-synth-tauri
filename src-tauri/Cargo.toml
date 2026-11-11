@@ -1,6 +1,6 @@
 [package]
 name = "tetorica-sid-synth-tauri"
-version = "0.0.1"
+version = "0.2.3"
 edition = "2021"
 
 [build-dependencies]
