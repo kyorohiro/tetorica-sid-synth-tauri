@@ -11,7 +11,7 @@ importer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(importer)
 
 
-def release_files(text=b'<html>test</html>'):
+def release_files(text=b'<html>test</html>', code_effects=False):
     """A small four-core release, with real receipt relationships and no music."""
     files = {name: ('source fixture ' + name).encode() for name in importer.REQUIRED}
     files.update({'index.html': text, 'synth-sid/index.html': text,
@@ -72,6 +72,21 @@ def release_files(text=b'<html>test</html>'):
         'compilerInvocationPerformed': False,
     }).encode()
     entries = sorted(importer.BROWSER_ENTRIES)
+    if code_effects:
+        entries.append('js/native-fx-worklet.js')
+        files['js/native-fx-worklet.js'] = b'// effect worklet'
+        files['js/native_audio_effect.wasm'] = b'\x00asm\x01\x00\x00\x00'
+        original['tetorica_src/runtime/generated/effects/gain.wasm'] = files['js/native_audio_effect.wasm']
+        for name, source in importer.DECLARATION_SOURCES.items():
+            files[name] = b'// declaration'
+            original[source] = files[name]
+        for name in ['LICENSE', 'scripts/build_native_audio_effect.sh', *[
+                'tetorica_src/native/audio_effect/' + name for name in (
+                    'compressor.c', 'compressor.h', 'eq.c', 'extra_fx.c', 'extra_fx.h',
+                    'gain.c', 'graph.c', 'noise.c', 'noise_gate.c', 'noise_gate.h',
+                    'reverb.c', 'reverb.h', 'sample.c')]]:
+            files['sources/code-effects/' + name] = original.setdefault(name, b'// effect source')
+        files['sources/code-effects/README.md'] = b'Rebuild instructions'
     modules = [{**record(name), 'sourcePath': 'docs/' + name, 'localImports':
                 ['../js/sid.js'] if name.endswith('/processor.js') else []}
                for name in [*entries, 'js/sid.js', 'js/sid_waveforms.js']]
@@ -96,6 +111,14 @@ def release_files(text=b'<html>test</html>'):
                                    'buildReceipt': record(f'generated/{component}/{component}-build.json')}
                                   for component in ('sid-player', 'sid-rsid')],
     }).encode()
+    if code_effects:
+        receipt = json.loads(files[importer.BROWSER_RECEIPT])
+        receipt['codeEffects'] = {
+            'artifact': record('js/native_audio_effect.wasm'),
+            'sourceRoot': 'sources/code-effects',
+            'recipe': 'sources/code-effects/scripts/build_native_audio_effect.sh',
+        }
+        files[importer.BROWSER_RECEIPT] = json.dumps(receipt).encode()
     return files
 
 def write_archive(path, files):
@@ -105,6 +128,36 @@ def write_archive(path, files):
 
 
 class ImportTests(unittest.TestCase):
+    def test_code_effects_release_and_declarations_preserve_all_bytes(self):
+        files = release_files(code_effects=True)
+        self.assertEqual(self.unpack(files), {name: importer.digest(data) for name, data in files.items()})
+
+    def test_code_effects_and_declarations_require_original_sources(self):
+        for name in ['js/native-fx-worklet.js', 'js/native_audio_effect.wasm',
+                     'sources/code-effects/scripts/build_native_audio_effect.sh',
+                     'sources/code-effects/tetorica_src/native/audio_effect/graph.c',
+                     *importer.DECLARATION_SOURCES]:
+            files = release_files(code_effects=True)
+            files[name] = b'changed'
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                self.unpack(files)
+
+    def test_entries_require_required_modules_and_reject_unknown_entries(self):
+        for mode in ('missing', 'unknown', 'missing module', 'missing effects'):
+            files = release_files(code_effects=True)
+            receipt = json.loads(files[importer.BROWSER_RECEIPT])
+            if mode == 'missing':
+                receipt['bundles'] = [r for r in receipt['bundles'] if r['path'] != 'synth-sid/synth.js']
+            elif mode == 'unknown':
+                receipt['bundles'].append({**receipt['bundles'][0], 'path': 'unknown.js'})
+            elif mode == 'missing module':
+                receipt['modules'] = [r for r in receipt['modules'] if r['path'] != 'js/native-fx-worklet.js']
+            else:
+                del receipt['codeEffects']
+            files[importer.BROWSER_RECEIPT] = json.dumps(receipt).encode()
+            with self.subTest(mode=mode), self.assertRaises(ValueError):
+                self.unpack(files)
+
     def test_new_zip_updates_without_version_and_preserves_label_for_same_zip(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

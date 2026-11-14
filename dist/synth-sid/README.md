@@ -46,6 +46,107 @@ software output gain; values above 100% use the orange boost color. The
 oscilloscope and spectrum observe the final Master-scaled output without
 adding another speaker connection.
 
+## Play from Code and keep project files
+
+The lower **Keyboard / Code** tabs share this Synth's one SID and its selected
+6581 / 8580 model, three channel patches, filter and Master. Code names physical
+channels explicitly; keyboard round robin and Legato remain keyboard features.
+These scheduling and project tools are software features, beyond SID registers.
+
+New projects start with three independent loops: an E2 minor-pentatonic melody
+every 0.25 beat, a 2-second Sync modulator ratio sweep from 0.2 to 0.8 and back,
+and a 4-second LP + BP cutoff sweep from 100 to 600 and back. CH3 modulates CH1
+without a direct output. Shared motion state survives Apply through
+`livePrepare()`. Ring is enabled but only affects Triangle, not the starter's
+Saw. Existing saved code is retained. A minimal melody example is:
+
+```js
+const sid = await useSoundChip("sid");
+setBpm(120);
+liveLoop("melody", async () => {
+  const notes = scale("E3", "minorPentatonic", 2);
+  await sid.noteOn(CH1, choose(notes));
+  await beat(0.24);
+  await sid.noteOff(CH1);
+  await beat(0.5);
+});
+```
+
+**Run** starts a fresh context; **Apply** keeps `context` and named preparations.
+Use `beat()` for note lengths and rests to make the melody follow `setBpm()`.
+The starter's separate modulation and filter `tween()` loops use seconds, so
+their motion stays independent of the melody tempo.
+
+**Stop** cancels pending work, fades the output and restores the current authored
+channel setup. Keyboard / Code changes the input view while the same loops,
+context and FX continue. The shared Run / Apply / Stop row stays visible above
+the keyboard. The Code tab supports
+`livePrepare()`, `tween()`, `liveFx()` and the common music helpers. Effects run
+after the chip in host software. There is no implicit `play()` or independent
+chip factory here; acquire the SID through `useSoundChip("sid")` and await its
+acknowledged controls. Existing **Copy JavaScript** still targets the full C64
+Playground separately. Maximize Code places the same editor beside Files.
+
+Choosing Code keeps focus on the tab, so computer-key performance remains
+available outside the editor and after Stop. Click inside the editor to type;
+text/number inputs, selects and dialogs keep their keys. Musical waits use
+`beat()` and follow `setBpm()`; the default modulation's `tween()` periods
+deliberately remain in seconds. Existing saved scripts are kept.
+
+Selecting a sound JSON in **Files**, loading a preset or changing its voice
+settings keeps the current Run, loops, `context`, preparations and software FX.
+The shared SID adopts the new authored settings; loads and topology changes
+clear held hardware notes, so the next Code note uses the new sound. Presets
+can also switch 6581 / 8580 within this same audio graph and Code client. A
+failed model preparation keeps the old chip running. Explicit Stop restores
+the latest selected sound; project replacement and starting a SID song still
+stop Code. Code that sets its own waveform / filter again can overwrite those
+particular settings on its next iteration.
+
+While Code runs, **Live from Code** is On by default. The existing **Your sound**
+controls show the selected Code channel's applied waveform flags, Pulse width,
+hardware ADSR and shared filter, with the same change highlights as song Live.
+The **CH 1 / CH 2 / CH 3** buttons choose the physical channel to inspect and
+play from Keyboard. While Live is on, editing a control changes only that field
+on the displayed channel and its authored settings; frequency, Gate and other
+channels keep running. The hardware filter remains shared. Turn Live off to
+edit the authored sound and use its keyboard allocation. Stop restores the
+authored display. Observing alone never replaces a saved preset or Files sound.
+
+Keyboard can play alongside Code. The most recent Key On owns a physical
+channel: an older Code Note Off or keyboard key-up cannot stop its newer owner,
+and old notes do not return automatically. Keyboard Pitch only retunes keyboard
+owners. Parameter edits do not claim a gate; raw register writes and explicit
+allNotesOff remain physical controls. Blur releases keyboard notes while Code
+keeps running. Updates are limited
+to 20/s, so register writes between observations can be missed; 8580 continues
+to show its unavailable Envelope as unavailable.
+
+**Files** keeps `/index.js`, local modules, text/JSON and opaque binary files.
+Create or select a `.js` / `.mjs` file to edit it in Code. Use dynamic local
+imports such as `await import("./lib/notes.js")`, and `await file("./data/notes.json",
+{type:"json"})` for data relative to the active file. Other text files have a
+small Files editor. Text edits save locally; saving, restoring or importing
+files never runs them. JavaScript files are limited to 2 MiB.
+
+**Save sound** writes all three current patches to
+`/presets/current.sid-channels.json`. Selecting a supported voice/setup JSON
+applies its settings after stopping the preceding performance. Editing its text
+does not apply it automatically: select it again when ready. Legacy JSON files
+and unfinished text remain unchanged in Files; invalid sound selections keep
+the current instrument. Existing voice/setup save buttons and formats still work.
+
+**Export project** creates a self-contained Cassette ZIP with the authored
+channel setup, code selection and every project file. **Import project** checks
+the complete candidate before replacing Files or the instrument. The common
+Cassette loader's 16 MiB compressed/expanded limits apply. Imported `.sid` or
+other binary data remains a file; it does not start song preview. Use the
+separate **Load SID…** controls for song playback. Local recovery uses a SID-only
+IndexedDB store, with a localStorage fallback; export a project for a portable
+backup. The optional Monaco editor loads from its CDN; basic text editing and
+Run remain available if that editor cannot load. Runtime sources and type
+declarations used by definition navigation are included locally in the ZIP.
+
 ## Open a SID and use its sound
 
 Open a local `.sid` directly in **Sounds from SID**, without visiting a separate
@@ -65,9 +166,9 @@ Player page:
 **Auto · file** follows a known 6581 / 8580 declaration. Unknown/either hints
 use PAL / 6581 by default; manual selection can resolve an unknown/either model.
 A known conflicting model or NTSC declaration is rejected without rewriting
-the file. With **Auto update from song** on, compatible observed settings also
-update the keyboard's selected target, including the model. With it off, use a
-captured Voice to import a sound explicitly.
+the file. **Auto update from song** follows the selected physical song CH.
+It does not replace the saved Synth patches. Use a captured Voice to import
+a sound explicitly.
 
 Preview supports PAL, single-SID PSID / RSID v2 through the existing C64
 machine's limited built-in environment. It does not accept user ROMs or offer
@@ -85,8 +186,13 @@ original phase, elapsed Envelope or later song automation. Independent
 Sync / Ring pairs retain their frequency-register ratio; the source's audible
 part is not imported. The same limits as Player snapshots below apply.
 
-Playing the song clears Synth notes; playing a Synth key stops a pending or
-active preview before the key sounds. **Stop all sound** stops both paths.
+Playing the song clears Synth notes. During playback, select **CH 1 / 2 / 3**
+to edit or play that physical channel in the song's SID. Subsequent C64 writes
+take priority; an older key-up or Pitch gesture cannot silence or retune the
+newer song note. Keys change only the carrier's frequency and Gate; they do not
+retune or silence the preceding Sync / Ring oscillator. **Synth · Round robin**
+edits and plays the separate authored instrument while the song continues.
+**Stop all sound** stops both paths. Code and SID songs remain exclusive.
 Master controls both. Cancelled/bad reads retain the preset, accepted SID and
 captured batch; an accepted replacement stops its previous preview only after
 validation succeeds. Opening a SID alone never replaces the keyboard instrument.
@@ -96,15 +202,17 @@ No song, ROM or PCM bytes are stored in a voice preset.
 
 **Pause** holds the current song position and CPU / SID state. Its button becomes
 **Resume**, which continues the same preview without reloading the file.
-With Auto update on, **Your sound** keeps the same read-only controls at the
-acknowledged pause point. Switch **CH 1 / CH 2 / CH 3** to inspect that held
-state, or turn Auto update off to edit the latest playable settings. No periodic
-reads are needed while paused.
+**Your sound** keeps the same read-only controls at the acknowledged pause
+point. Switch **CH 1 / CH 2 / CH 3** to inspect that held state. Keys audition
+a playable snapshot on the separate Synth, keeping the paused song's CPU,
+SID registers and position unchanged. Unavailable snapshots show their reason.
+No periodic reads are needed while paused. Resume retires this temporary
+audition and continues the original song chip.
 
 **Capture voices** works while paused and reads that same fixed machine state.
 You can Resume after capture, or select a captured Voice to stop the preview
-and load it into the keyboard. A Synth key and **Stop all sound** also close
-a paused preview. File cancellation or a failed replacement keeps it paused;
+and load it into the keyboard. **Stop all sound** closes a paused preview.
+File cancellation or a failed replacement keeps it paused;
 a successful file / model / subtune replacement starts ready for a new Play.
 
 Pause is acknowledged at an audio-processing boundary. A short 5 ms host-output
@@ -121,23 +229,25 @@ silently using an older cached audio module. If an already-open older page shows
 ### Automatically reflect a playing channel
 
 **Auto update from song** is on by default. During song preview, **Your sound**
-follows the selected physical **CH 1 / CH 2 / CH 3**. Compatible voice settings
-are kept in that channel's keyboard patch. In **Round robin**, the last explicitly
-selected song CH is observed and its compatible settings are applied to all three
-keyboard channels when those settings change. Selecting Round robin alone, or
-advancing to another observation of unchanged settings, does not copy them. The
-song itself is never changed.
+follows the selected physical **CH 1 / CH 2 / CH 3**. During playback, the same
+controls directly edit that channel: waveform flags, Pulse width, ADSR,
+Sync / Ring / TEST, and the shared filter. Only touched fields are written,
+using the latest chip registers to preserve other channels and packed bits.
+The calculated modulator ratio changes only the preceding oscillator's tuning.
+The song can overwrite any of these settings on its next register write.
 
-Turn Auto update off to keep the latest playable settings and edit or audition
-them. CH selection remains available. While paused, the same controls inspect
-the held state until Resume. Unsupported raw settings remain visible while Auto
-is on, with their reason; they do not overwrite the last playable patch. Loading
-a preset/setup or using Reset turns Auto update off so the explicit choice stays.
+Turn Auto update off to freeze the display while keeping controls and keys
+connected to the selected song CH. Turning it on reads the latest state.
+Selecting **Synth · Round robin**, loading a preset/setup, or using Reset
+shows the separate authored bank without stopping the song. Song observation
+and manual edits never overwrite saved patches. **Capture voices**, then
+selecting a captured Voice, remains the explicit import operation.
 
 Live and editing use the **same controls in the same positions**: waveform
 buttons, Pulse width, ADSR, filter and modulation controls update in place.
-Live values are read-only and changes are highlighted. Turning Auto update off
-keeps the same control nodes and folded sections and enables editing again.
+Changes are highlighted without replacing control nodes or folded sections.
+Model selection is locked in the song controls; choose the playback model in
+**Sounds from SID**. Paused song controls remain read-only.
 Long explanations are behind each section's **?** button, closed by default.
 
 The passive display shows the actual waveform flags (including combined or no
@@ -156,8 +266,9 @@ when both Sync and Ring are off. These values can continue changing even while
 they do not affect the current sound; the tooltip explains the inactive state.
 
 This uses the existing player's coherent Worklet read at up to 20 updates per
-second, with one read at a time. It never writes the song or starts keyboard
-audio merely to reflect settings. Fast register changes between observations can be
+second, with one read at a time. Observation alone never writes the song or
+starts keyboard audio. Explicit manual actions change the running chip only;
+the source file stays intact. Fast register changes between observations can be
 missed; this is a sampled view, not a complete register-write recording. Capture
 still reads one fixed batch, and the captured Voice buttons load that batch.
 

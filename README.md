@@ -97,9 +97,21 @@ Git and reapply them afterward.
 Obtain a readable SID Synth ZIP from the parent project, then run:
 
 ```sh
-npm run import:release -- /path/to/tetorica_sid_synth_VERSION_itch.zip
+npm run import:release -- /path/to/tetorica_sid_synth_WEB_VERSION_itch.zip --version X.Y.Z
 python3 scripts/import_release.py --check
 ```
+
+Replace `X.Y.Z` with the app's numeric three-part version. It is independent
+of the archive name and Web release version. The optional `--version` updates
+`package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, this app's own
+`Cargo.lock` package and `src-tauri/tauri.conf.json` together, preserving dependency
+versions. `release.lock.json` continues to describe the imported Web release.
+Omit the flag to keep the existing app version. It cannot be combined with
+`--check` or `--record-local-changes`.
+
+For a release, build with the existing `sh deploy_mac.sh` after import, then
+include the five metadata/lock files with `dist/` and `release.lock.json` in the
+final commit before creating the tag. Import does not build, commit, tag or push.
 
 The importer checks product identity, archive paths, readable module receipts,
 the enclosed browser source archive, all four SID / C64 native source kits,

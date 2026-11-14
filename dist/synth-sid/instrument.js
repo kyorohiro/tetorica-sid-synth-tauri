@@ -15,6 +15,9 @@ const topology=settings=>{
 };
 const noteHz=midi=>440*2**((midi-69)/12);
 const changes=(next,previous)=>Object.fromEntries(Object.entries(next).filter(([key,value])=>!previous||previous[key]!==value));
+const codeMethods=new Set(['setNote','setFrequency','noteOn','noteOff','keyOn','keyOff','allNotesOff',
+  'setVoice','setFilter','writeRegister','readRegister','getRegisterSnapshot','getState','initialize','reset','setClock']);
+const codeCancelled=()=>{const error=new Error('SID Code session was stopped or its instrument changed');error.name='AbortError';return error;};
 
 /** Software key allocation over three physical PAL SID voices. A fixed target
  * edits and plays that channel; Round robin preserves each channel's patch.
@@ -28,6 +31,7 @@ export class SidInstrument{
     if(!['6581','8580'].includes(core.model)||core.clockHz!==SID_PAL_CLOCK)throw new RangeError('SID Synth requires model 6581 or 8580 at PAL 985248 Hz');
     this.core=core;this.synth=new SidSynth({core});this.preset=createDefaultPreset({model:core.model});
     this.disposed=false;this.pitch=0;this.cursor=0;this.sequence=0;this.voices=new Map();this.slots=Array(3).fill(null);
+    this.codeEpoch=0;this.codeActive=false;this.codeFrames=0;this.gateOwners=Array(3).fill(null);
     this._replace(createChannelSettings(this.preset));
   }
   _open(){if(this.disposed)throw new Error('SID instrument is disposed');}
@@ -49,24 +53,25 @@ export class SidInstrument{
     const filter=changes(this._filter(this.channelSettings,plan),previous?this._filter(previous,previousPlan):null);
     if(Object.keys(filter).length)this.synth.setFilter(filter);
   }
-  _replace(settings){
+  _replace(settings,keepCode=false){
     const preset=selected(settings);
     if(preset.model!==this.core.model)throw new RangeError('SID preset model must match its core; replace the instrument to change model');
     // initialize resets the owned core, including its access queue and software
     // DC history. Reapplying the silent patch preserves authored parameters.
-    this.synth.initialize();this.channelSettings=settings;this.preset=preset;this.pitch=0;this.cursor=0;this.sequence=0;this.voices.clear();this.slots.fill(null);this._apply(null);
+    if(!keepCode){this.codeEpoch++;this.codeActive=false;}
+    this.synth.initialize();this.channelSettings=settings;this.preset=preset;this.pitch=0;this.cursor=0;this.sequence=0;this.voices.clear();this.slots.fill(null);this.gateOwners.fill(null);this._apply(null);
   }
   _tuning(midi,preset,pitch=this.pitch){
     const carrier=noteHz(midi+pitch),carrierRegister=sidFrequency(carrier,SID_PAL_CLOCK);
     if(carrierRegister===0)throw new RangeError('SID carrier frequency is below the register range');
-    const source=pair(preset)?carrier*preset.modulation.ratio:null;
+    const source=!this.codeActive&&pair(preset)?carrier*preset.modulation.ratio:null;
     if(source!==null&&sidFrequency(source,SID_PAL_CLOCK)===0)throw new RangeError('SID modulator frequency is below the register range');
     return {carrier,source};
   }
   _live(state=this.core.getState()){
     // An unavailable envelope is not evidence of silence. Retain at most one
     // metadata record per physical slot until that slot is actually reused.
-    return this.slots.filter(voice=>{if(!voice)return false;const envelope=state.voices?.[voice.channel]?.envelope;
+    return this.slots.filter(voice=>{if(!voice||this.codeActive&&(this.gateOwners[voice.channel]?.kind!=='keyboard'||this.gateOwners[voice.channel].id!==voice.id))return false;const envelope=state.voices?.[voice.channel]?.envelope;
       return !voice.released||!Number.isFinite(envelope)||envelope>0;});
   }
   _prepareTuning(settings=this.channelSettings,pitch=this.pitch){
@@ -97,7 +102,7 @@ export class SidInstrument{
   setChannelSettings(value){
     this._open();const next=readChannelSettings(value),preset=selected(next);
     if(preset.model!==this.core.model)throw new RangeError('SID preset model must match its core; replace the instrument to change model');
-    if(topology(next)!==topology(this.channelSettings)){this._replace(next);return this.read();}
+    if(topology(next)!==topology(this.channelSettings)){this._replace(next,this.codeActive);return this.read();}
     const tuning=this._prepareTuning(next),previous=this.channelSettings,plan=channelPlaybackPlan(next);
     this.channelSettings=next;this.preset=preset;this._apply(previous);
     for(const item of tuning)if(item.tuning.source!==null&&previous.channels[item.voice.channel].modulation.ratio!==next.channels[item.voice.channel].modulation.ratio)
@@ -105,13 +110,14 @@ export class SidInstrument{
     return this.read();
   }
   loadPreset(value){this._open();return this.loadChannelSettings(applyChannelPreset(this.channelSettings,readPreset(value)));}
-  loadChannelSettings(value){this._open();const next=readChannelSettings(value);this._replace(next);return this.read();}
-  noteOn(id,midi){
+  loadChannelSettings(value){this._open();const next=readChannelSettings(value);this._replace(next,this.codeActive);return this.read();}
+  noteOn(id,midi,target=null){
     this._open();
     if(typeof id!=='string'||!id.length||id.length>128)throw new TypeError('Expected a note identity of 1–128 characters');
     if(this.voices.has(id))throw new Error('Note identity is already active');
     if(!Number.isInteger(midi)||midi<0||midi>127)throw new RangeError('Expected a MIDI note 0–127');
-    const plan=channelPlaybackPlan(this.channelSettings),channels=plan.channels,state=this.core.getState();let channel;
+    if(target!==null&&(!Number.isInteger(target)||target<0||target>2))throw new RangeError('SID keyboard target must be null or 0..2');
+    const plan=this.codeActive&&target!==null?{channels:[target],carrier:target,source:null}:channelPlaybackPlan(this.channelSettings),channels=plan.channels,state=this.core.getState();let channel;
     for(let offset=0;offset<channels.length;offset++){
       const candidate=channels[(this.cursor+offset)%channels.length],voice=this.slots[candidate];
       const envelope=state.voices?.[candidate]?.envelope;
@@ -126,16 +132,19 @@ export class SidInstrument{
     const tuning=this._tuning(midi,this.channelSettings.channels[channel]);
     const previous=this.slots[channel],overlap=this._legato()&&previous&&!previous.released&&this.voices.get(previous.id)===previous;
     const stolenId=previous&&!previous.released&&!overlap?previous.id:null;
-    if(previous&&!previous.released&&!overlap)this.synth.keyOff(channel);
+    if(!overlap&&(this.codeActive||previous&&!previous.released))this.synth.keyOff(channel);
     this.synth.setFrequency(channel,tuning.carrier);
     if(tuning.source!==null)this.synth.setFrequency(plan.source,tuning.source);
     if(!overlap)this.synth.keyOn(channel);
+    this.gateOwners[channel]={kind:'keyboard',id};
     if(previous&&!overlap&&this.voices.get(previous.id)===previous)this.voices.delete(previous.id);
     const voice={id,midi,channel,order:++this.sequence,released:false};this.slots[channel]=voice;this.voices.set(id,voice);this.cursor=(channels.indexOf(channel)+1)%channels.length;
     return {channel,stolenId};
   }
   noteOff(id){
     this._open();const voice=this.voices.get(id);if(!voice)return false;
+    const owner=this.gateOwners[voice.channel];
+    if(this.codeActive&&(owner?.kind!=='keyboard'||owner.id!==id)){this.voices.delete(id);return false;}
     if(this._legato()){
       if(this.slots[voice.channel]!==voice){this.voices.delete(id);return true;}
       const fallback=[...this.voices.values()].filter(value=>value!==voice&&value.channel===voice.channel)
@@ -144,11 +153,41 @@ export class SidInstrument{
         const plan=channelPlaybackPlan(this.channelSettings),tuning=this._tuning(fallback.midi,this.channelSettings.channels[fallback.channel]);
         this.synth.setFrequency(fallback.channel,tuning.carrier);
         if(tuning.source!==null)this.synth.setFrequency(plan.source,tuning.source);
-        this.voices.delete(id);this.slots[voice.channel]=fallback;return true;
+        this.voices.delete(id);this.slots[voice.channel]=fallback;this.gateOwners[voice.channel]={kind:'keyboard',id:fallback.id};return true;
       }
     }
     if(this.slots[voice.channel]!==voice)return false;
     this.synth.keyOff(voice.channel);this.voices.delete(id);voice.released=true;return true;
+  }
+  releaseKeyboard(){this._open();for(const id of [...this.voices.keys()])this.noteOff(id);return this.read();}
+  /** Edit only touched fields of the displayed Code channel. Frequencies,
+   * Gate and every other voice keep their current hardware values. */
+  editCodeVoice(session,channel,patch){
+    this._open();if(!this.codeActive||session!==this.codeEpoch)throw codeCancelled();
+    if(!Number.isInteger(channel)||channel<0||channel>2)throw new RangeError('SID channel must be an integer 0..2');
+    const keys={voice:['waveform','pulseWidth','attack','decay','sustain','release','test'],modulation:['sync','ring','ratio'],filter:['enabled','mode','cutoff','resonance','volume']};
+    if(!patch||typeof patch!=='object'||Array.isArray(patch)||Object.keys(patch).some(key=>!Object.hasOwn(keys,key)))throw new TypeError('Invalid SID Code edit');
+    const next=readChannelSettings(this.channelSettings),preset=next.channels[channel];
+    for(const [group,values]of Object.entries(patch)){
+      if(!values||typeof values!=='object'||Array.isArray(values)||Object.keys(values).some(key=>!keys[group].includes(key)))throw new TypeError('Invalid SID Code edit fields');
+      Object.assign(preset[group],values);
+    }
+    const validated=readPreset(preset);
+    for(let ch=0;ch<3;ch++)next.channels[ch]={...next.channels[ch],filter:validated.filter};
+    next.channels[channel]=validated;const settings=readChannelSettings(next);
+    const voice={...patch.voice};for(const key of ['sync','ring'])if(Object.hasOwn(patch.modulation??{},key))voice[key]=validated.modulation[key];
+    const filter={...patch.filter},regs=this.synth.getRegisterSnapshot();
+    if(Object.hasOwn(filter,'enabled')){filter.routing=filter.enabled?(regs[23]&7)|(1<<channel):(regs[23]&7)&~(1<<channel);delete filter.enabled;}
+    let sourceHz=null;
+    if(Object.hasOwn(patch.modulation??{},'ratio')){
+      const carrier=(regs[channel*7]|regs[channel*7+1]<<8)*SID_PAL_CLOCK/16777216;
+      sourceHz=carrier*validated.modulation.ratio;
+      if(!Number.isFinite(sourceHz)||!sidFrequency(sourceHz,SID_PAL_CLOCK))throw new RangeError('Cannot set a ratio while the carrier frequency is zero');
+    }
+    if(Object.keys(voice).length)this.synth.setVoice(channel,voice);
+    if(Object.keys(filter).length)this.synth.setFilter(filter);
+    if(sourceHz!==null)this.synth.setFrequency((channel+2)%3,sourceHz);
+    this.channelSettings=settings;this.preset=selected(settings);return this.read();
   }
   setPitch(semitones){
     this._open();if(!Number.isFinite(semitones)||semitones < -24||semitones>24)throw new RangeError('Pitch must be between -24 and +24 semitones');
@@ -156,7 +195,58 @@ export class SidInstrument{
     for(const item of tuning){this.synth.setFrequency(item.voice.channel,item.tuning.carrier);if(item.tuning.source!==null)this.synth.setFrequency(plan.source,item.tuning.source);}
     this.pitch=semitones;return this.read();
   }
+  /** Code borrows this same chip, but owns physical voices rather than key IDs.
+   * Starting the session clears the keyboard allocator and restores its patch.
+   * Sound loads may restart hardware notes, while retaining this Code token.
+   * Explicit Stop invalidates every earlier session token.
+   */
+  beginCode(){
+    this._open();this.stop();this.codeActive=true;this.codeFrames=0;
+    return {session:this.codeEpoch,clock:this.synth.clock,model:this.core.model,channels:3};
+  }
+  /** Internal same-Worklet handoff after a model candidate is ready. The
+   * processor keeps its public session; this instrument owns its new token. */
+  adoptCode(previous){
+    this._open();
+    if(!previous?.codeActive||!Number.isSafeInteger(previous.codeFrames)||previous.codeFrames<0)
+      throw new TypeError('Expected an active SID Code owner');
+    this.codeActive=true;this.codeFrames=previous.codeFrames;
+    return {session:this.codeEpoch,clock:this.synth.clock,model:this.core.model,channels:3};
+  }
+  /** One coherent, non-clocking observation of the applied Code state. This
+   * never replaces the saved preset or acquires/restarts a Code session. */
+  observeCode(...args){
+    this._open();if(args.length)throw new TypeError('SID Code observation takes no arguments');
+    if(!this.codeActive)return null;
+    const state=this.core.getState();
+    return {model:this.core.model,clockHz:this.core.clockHz,sampleRate:this.core.sampleRate,positionFrames:this.codeFrames,
+      registers:Array.from(state.registers),voices:Array.from({length:3},(_,channel)=>{
+        const envelope=state.voices?.[channel]?.envelope;
+        return {envelope:Number.isInteger(envelope)&&envelope>=0&&envelope<=255?envelope:null};
+      })};
+  }
+  code(session,method,args=[]){
+    this._open();
+    if(!this.codeActive||session!==this.codeEpoch)throw codeCancelled();
+    if(!codeMethods.has(method))throw new Error('Unknown SID Code method');
+    if(!Array.isArray(args))throw new TypeError('SID Code arguments must be an array');
+    if(method==='getState')return this.synth._getState();
+    // These are shared-instrument resets, not ownership/disposal operations.
+    // Preserve the Code token while restoring the latest authored patch.
+    if(method==='initialize'||method==='reset'){
+      if(args.length)throw new TypeError('SID Code reset takes no arguments');
+      this._replace(this.channelSettings,true);return;
+    }
+    if(method==='allNotesOff'){this.gateOwners.fill({kind:'code'});this.voices.clear();this.slots.fill(null);return this.synth.allNotesOff();}
+    let channel=args[0],on=method==='noteOn'||method==='keyOn',off=method==='noteOff'||method==='keyOff';
+    const rawGate=method==='writeRegister'&&[4,11,18].includes(args[0]);
+    if(rawGate){channel=(args[0]-4)/7;on=Boolean(args[1]&1);off=!on;}
+    if(off&&!rawGate&&this.gateOwners[channel]?.kind==='keyboard')return false;
+    const result=this.synth[method](...args);
+    if(on||rawGate){this.gateOwners[channel]={kind:'code'};this.slots[channel]=null;for(const [id,voice]of this.voices)if(voice.channel===channel)this.voices.delete(id);}
+    return result;
+  }
   stop(){this._open();this._replace(this.channelSettings);return this.read();}
-  renderInto(output){this._open();if(!(output instanceof Float32Array))throw new TypeError('SID output must be Float32Array');return this.core.renderInto(output);}
+  renderInto(output){this._open();if(!(output instanceof Float32Array))throw new TypeError('SID output must be Float32Array');const result=this.core.renderInto(output);if(this.codeActive)this.codeFrames+=output.length;return result;}
   dispose(){if(this.disposed)return;this.voices.clear();this.slots.fill(null);try{this.synth.dispose();}finally{this.disposed=true;this.core.dispose();}}
 }

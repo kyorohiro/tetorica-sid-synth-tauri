@@ -1,6 +1,7 @@
 """Import an unmodified Synth release; pin archive and extracted file hashes."""
 import argparse
 import hashlib
+import importlib.util
 import io
 import json
 import posixpath
@@ -17,6 +18,12 @@ ROOT = Path(__file__).resolve().parents[1]
 BROWSER_RECEIPT = 'sources/sid-synth-browser.json'
 BROWSER_SOURCE_ARCHIVE = 'sources/sid-synth-browser-inputs.zip'
 BROWSER_ENTRIES = {'synth-sid/synth.js', 'synth-sid/processor.js', 'synth-sid/synth.css', 'sid-player/processor.js'}
+OPTIONAL_BROWSER_ENTRIES = {'js/native-fx-worklet.js'}
+DECLARATION_SOURCES = {
+    'js/sid8580.d.ts': 'tetorica_src/runtime/sid8580.d.ts',
+    **{f'playground/{name}.d.ts': f'docs/playground/{name}.d.ts' for name in (
+        'tetorica-playground-c64', 'tetorica-playground-globals', 'tetorica-shell')},
+}
 NATIVE_INPUTS = {'sid': {'LICENSE',
          'scripts/build_sid_wasm.sh',
          'scripts/check_sid_native.mjs',
@@ -318,10 +325,14 @@ def validate_release(destination, hashes):
             or builder.get('minify') is not False or builder.get('bundle') is not False):
         raise ValueError('Expected readable source-copy browser modules without minification or bundling')
     entries = records(browser.get('bundles'), 'browser entry')
-    if entries.keys() != BROWSER_ENTRIES:
-        raise ValueError('Expected complete SID Synth entry receipts')
+    missing_entries = BROWSER_ENTRIES - entries.keys()
+    unexpected_entries = entries.keys() - BROWSER_ENTRIES - OPTIONAL_BROWSER_ENTRIES
+    if missing_entries or unexpected_entries:
+        raise ValueError('Expected complete SID Synth entry receipts; missing: '
+                         + ', '.join(sorted(missing_entries)) + '; unexpected: '
+                         + ', '.join(sorted(unexpected_entries)))
     modules = records(browser.get('modules'), 'readable browser module')
-    if not BROWSER_ENTRIES <= modules.keys():
+    if not entries.keys() <= modules.keys():
         raise ValueError('Expected all browser entries in the readable module receipts')
     original = records(browser.get('originalInputs'), 'original browser input')
     for name, record in modules.items():
@@ -376,11 +387,37 @@ def validate_release(destination, hashes):
     # it. The optional 8580 declaration is a canonical readable source copy.
     for name in hashes:
         if not name.startswith(('sources/', 'licenses/')) and name.endswith(('.js', '.mjs', '.css', '.d.ts')) and name not in modules:
-            if name != 'js/sid8580.d.ts':
+            if name not in DECLARATION_SOURCES:
                 raise ValueError(f'Unrecorded browser module: {name}')
-            original_copy(name, 'tetorica_src/runtime/sid8580.d.ts')
+            original_copy(name, DECLARATION_SOURCES[name])
     for name in ('LICENSE', 'tetorica_sid_synth.webp'):
         original_copy(name, name if name == 'LICENSE' else 'docs/' + name)
+
+    effects = browser.get('codeEffects')
+    if effects is not None or OPTIONAL_BROWSER_ENTRIES & entries.keys() or 'js/native_audio_effect.wasm' in hashes:
+        effect_root = 'sources/code-effects'
+        artifact = 'js/native_audio_effect.wasm'
+        recipe = 'scripts/build_native_audio_effect.sh'
+        if (not isinstance(effects, dict) or effects.get('sourceRoot') != effect_root
+                or effects.get('recipe') != f'{effect_root}/{recipe}'
+                or not OPTIONAL_BROWSER_ENTRIES <= entries.keys()):
+            raise ValueError('Expected complete code effects receipt and worklet')
+        record = effects.get('artifact')
+        if not isinstance(record, dict) or record.get('path') != artifact:
+            raise ValueError('Expected code effects WASM receipt')
+        verify(record, artifact)
+        original_copy(artifact, 'tetorica_src/runtime/generated/effects/gain.wasm')
+        if (destination / artifact).read_bytes()[:8] != b'\0asm\1\0\0\0':
+            raise ValueError('Invalid code effects WASM header')
+        effect_inputs = {'LICENSE', recipe} | {
+            f'tetorica_src/native/audio_effect/{name}' for name in (
+                'compressor.c', 'compressor.h', 'eq.c', 'extra_fx.c', 'extra_fx.h',
+                'gain.c', 'graph.c', 'noise.c', 'noise_gate.c', 'noise_gate.h',
+                'reverb.c', 'reverb.h', 'sample.c')}
+        for name in effect_inputs:
+            original_copy(f'{effect_root}/{name}', name)
+        if f'{effect_root}/README.md' not in hashes:
+            raise ValueError('Expected code effects rebuild instructions')
 
     receipts = {}
     for component, expected_inputs in NATIVE_INPUTS.items():
@@ -626,13 +663,26 @@ def check(root):
     return lock
 
 
-def import_release(root, archive):
+def prepare_app_version(root, version):
+    """Load this checkout's standalone metadata updater only when requested."""
+    spec = importlib.util.spec_from_file_location(
+        'tetorica_app_version', Path(__file__).with_name('app_version.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.prepare_version_update(root, version)
+
+
+def import_release(root, archive, version=None):
+    version_update = prepare_app_version(root, version) if version is not None else None
     if not archive.is_file():
         raise FileNotFoundError(f'Synth release ZIP not found: {archive}')
     sha = digest(archive.read_bytes())
     previous = root / 'release.lock.json'
-    old_lock = json.loads(previous.read_text()) if previous.exists() else {}
-    version = old_lock.get('version') if old_lock.get('sha256') == sha else f'sha256-{sha[:12]}'
+    old_lock_bytes = previous.read_bytes() if previous.exists() else None
+    old_lock = json.loads(old_lock_bytes) if old_lock_bytes is not None else {}
+    local_manifest = root / LOCAL_MANIFEST
+    old_local_bytes = local_manifest.read_bytes() if local_manifest.exists() else None
+    release_version = old_lock.get('version') if old_lock.get('sha256') == sha else f'sha256-{sha[:12]}'
     with tempfile.TemporaryDirectory(prefix='.import-', dir=root) as temporary:
         staging = Path(temporary) / 'dist'
         staging.mkdir()
@@ -641,26 +691,51 @@ def import_release(root, archive):
             browser = json.loads((staging / BROWSER_RECEIPT).read_text())
             released_version = browser.get('version')
             if isinstance(released_version, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]{0,79}', released_version):
-                version = released_version
-        lock = {'version': version, 'archive': archive.name, 'sha256': sha, 'files': hashes}
+                release_version = released_version
+        lock = {'version': release_version, 'archive': archive.name, 'sha256': sha, 'files': hashes}
         destination = root / 'dist'
-        if destination.exists():
-            destination.rename(Path(temporary) / 'previous-dist')
-        staging.rename(destination)
-        previous.write_text(json.dumps(lock, indent=2, sort_keys=True) + '\n')
-        (root / LOCAL_MANIFEST).unlink(missing_ok=True)
-    print(f'Imported {version}: {len(hashes)} files, SHA256 {sha}')
+        backup = Path(temporary) / 'previous-dist'
+        installed = False
+        try:
+            if destination.exists():
+                destination.rename(backup)
+            staging.rename(destination)
+            installed = True
+            previous.write_text(json.dumps(lock, indent=2, sort_keys=True) + '\n')
+            local_manifest.unlink(missing_ok=True)
+            if version_update is not None:
+                version_update.apply()
+        except BaseException:
+            # Metadata applies transactionally too. Restore the imported assets
+            # and provenance if either installation or the app update fails.
+            if installed:
+                shutil.rmtree(destination)
+            if backup.exists():
+                backup.rename(destination)
+            if old_lock_bytes is None:
+                previous.unlink(missing_ok=True)
+            else:
+                previous.write_bytes(old_lock_bytes)
+            if old_local_bytes is None:
+                local_manifest.unlink(missing_ok=True)
+            else:
+                local_manifest.write_bytes(old_local_bytes)
+            raise
+    print(f'Imported {release_version}: {len(hashes)} files, SHA256 {sha}')
+    if version_update is not None:
+        print(f'App version set to {version_update.version}')
     return lock
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('zip', nargs='?', type=Path, help='Path to the Synth release ZIP')
+    parser.add_argument('--version', help='Set the app version to X.Y.Z; independent of the ZIP filename')
     actions = parser.add_mutually_exclusive_group()
     actions.add_argument('--check', action='store_true')
     actions.add_argument('--record-local-changes', action='store_true')
     args = parser.parse_args()
-    if (args.check or args.record_local_changes) and args.zip is not None:
+    if (args.check or args.record_local_changes) and (args.zip is not None or args.version is not None):
         parser.error('choose a ZIP import, --check, or --record-local-changes')
     if not args.check and not args.record_local_changes and args.zip is None:
         parser.error('provide the ZIP path: npm run import:release -- ./xxx.zip')
@@ -675,7 +750,7 @@ def main():
         elif args.record_local_changes:
             record_local_changes(ROOT)
         else:
-            import_release(ROOT, args.zip)
+            import_release(ROOT, args.zip, version=args.version)
     except (OSError, ValueError, zipfile.BadZipFile) as error:
         parser.error(str(error))
 
