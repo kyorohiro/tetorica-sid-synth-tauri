@@ -16,8 +16,8 @@
     {
       "path": "synth-sid/synth.js",
       "sourcePath": "docs/synth-sid/synth.js",
-      "bytes": 46457,
-      "sha256": "f94d8624369e26226eda6fbd3103174a396c389b0ac67abe55888ccbfb5d1d2f",
+      "bytes": 48506,
+      "sha256": "2811cfe71fd458d184bc1f9963b9487c9c6ff36cbbbdff0d71f9644082268ffd",
       "localImports": [
         "../sid-player/voice_snapshot.js?sid-waves=1",
         "../synth-spu/spu_synth_visualizer.js",
@@ -27,14 +27,15 @@
         "./audio.js?sid-channels=3&sid-waves=1&sid-keys=1&sid-code=1&sid-code-live=1&sid-live-preset=2&sid-code-keyboard=1&sid-timed=1",
         "./channel_settings.js?sid-channels=3&sid-waves=1&sid-keys=1",
         "./code_host.js?v=sid-timed-1",
-        "./code_live.js?sid-code-live=1&sid-code-keyboard=1",
+        "./code_live.js?sid-code-live=1&sid-code-keyboard=1&sid-highlight=1",
         "./document_settings.js?v=sid-working-saved-1",
-        "./editor.js?sid-song-manual=1",
+        "./editor.js?sid-song-manual=1&sid-highlight=1",
         "./handoff.js?sid-waves=1",
+        "./live_highlight.js?sid-highlight=1",
         "./preset.js?sid-waves=1",
-        "./sid_import.js?sid-song-manual=1",
+        "./sid_import.js?sid-song-manual=1&sid-highlight=1",
         "./sid_import_panel.js?sid-channels=2&sid-code-live=1",
-        "./sid_live_view.js?sid-song-manual=1"
+        "./sid_live_view.js?sid-song-manual=1&sid-highlight=1"
       ]
     },
     {
@@ -55,8 +56,8 @@
     {
       "path": "synth-sid/synth.css",
       "sourcePath": "docs/synth-sid/synth.css",
-      "bytes": 22129,
-      "sha256": "3573911320b106ce730ba79c9f578b921840597d619f22b1143b64cf553dd419",
+      "bytes": 22073,
+      "sha256": "d359288ee70124db163aeb8cfccfdd5b6c4dd13d7946e57068bf6e98e979cafb",
       "localImports": [
         "../synth-spu/synth.css"
       ]
@@ -748,8 +749,8 @@
     {
       "path": "synth-sid/code_live.js",
       "sourcePath": "docs/synth-sid/code_live.js",
-      "bytes": 3782,
-      "sha256": "468f76037f0c0da3fe81b8059a0814e9b7e23a26faf7ee1dd1f874ecf5d91e4d",
+      "bytes": 3798,
+      "sha256": "53578adf8d92ddadaebb8c125bc4df686c8d1c70e26a3baa89d69623bc20df90",
       "localImports": []
     },
     {
@@ -790,8 +791,8 @@
     {
       "path": "synth-sid/editor.js",
       "sourcePath": "docs/synth-sid/editor.js",
-      "bytes": 21283,
-      "sha256": "a5da13011b57a9b4a1ddec57868520df32f635f393cba0dff4b8204f2be02119",
+      "bytes": 22371,
+      "sha256": "2d52f457855c4614f8bf8d769413e0cff20359100a3196cdb74ba873e9350e49",
       "localImports": [
         "../synth/synth_controls.js",
         "./preset.js?sid-waves=1"
@@ -816,6 +817,15 @@
         "../js/sidsynth.js?sid-waves=1",
         "./channel_settings.js?sid-channels=3&sid-waves=1&sid-keys=1",
         "./preset.js?sid-waves=1"
+      ]
+    },
+    {
+      "path": "synth-sid/live_highlight.js",
+      "sourcePath": "docs/synth-sid/live_highlight.js",
+      "bytes": 3333,
+      "sha256": "7b8f73c964bd6903bc619ced2f24e7b7b8da8c8481e08ffb59d35276e9cdab3b",
+      "localImports": [
+        "../synth/synth_live_highlight.js"
       ]
     },
     {
@@ -845,8 +855,8 @@
     {
       "path": "synth-sid/sid_import.js",
       "sourcePath": "docs/synth-sid/sid_import.js",
-      "bytes": 26257,
-      "sha256": "8c246c1fc24fd4aeebb8adb193004a83a12ae5e8ec8661effa1bcc7f79211e0c",
+      "bytes": 26278,
+      "sha256": "e1e73fd426ba6aa5810c9947df2f6ff380ebba663209ddc33103af5110d2fd7f",
       "localImports": [
         "../js/sid_psid.js",
         "../sid-player/audio.js?sid-manual=1",
@@ -865,8 +875,8 @@
     {
       "path": "synth-sid/sid_live_view.js",
       "sourcePath": "docs/synth-sid/sid_live_view.js",
-      "bytes": 14131,
-      "sha256": "62bca3c31a2f656f7106517fd4fd6944735224c114a99caa32c53eabb010f64f",
+      "bytes": 14597,
+      "sha256": "a72b0eb3ffe12e14ae524ca583b4920d51202d140f887cddf6facab99821dd69",
       "localImports": [
         "../sid-player/voice_snapshot.js?sid-waves=1"
       ]
@@ -874,8 +884,8 @@
     {
       "path": "synth-sid/synth.css",
       "sourcePath": "docs/synth-sid/synth.css",
-      "bytes": 22129,
-      "sha256": "3573911320b106ce730ba79c9f578b921840597d619f22b1143b64cf553dd419",
+      "bytes": 22073,
+      "sha256": "d359288ee70124db163aeb8cfccfdd5b6c4dd13d7946e57068bf6e98e979cafb",
       "localImports": [
         "../synth-spu/synth.css"
       ]
@@ -883,8 +893,8 @@
     {
       "path": "synth-sid/synth.js",
       "sourcePath": "docs/synth-sid/synth.js",
-      "bytes": 46457,
-      "sha256": "f94d8624369e26226eda6fbd3103174a396c389b0ac67abe55888ccbfb5d1d2f",
+      "bytes": 48506,
+      "sha256": "2811cfe71fd458d184bc1f9963b9487c9c6ff36cbbbdff0d71f9644082268ffd",
       "localImports": [
         "../sid-player/voice_snapshot.js?sid-waves=1",
         "../synth-spu/spu_synth_visualizer.js",
@@ -894,14 +904,15 @@
         "./audio.js?sid-channels=3&sid-waves=1&sid-keys=1&sid-code=1&sid-code-live=1&sid-live-preset=2&sid-code-keyboard=1&sid-timed=1",
         "./channel_settings.js?sid-channels=3&sid-waves=1&sid-keys=1",
         "./code_host.js?v=sid-timed-1",
-        "./code_live.js?sid-code-live=1&sid-code-keyboard=1",
+        "./code_live.js?sid-code-live=1&sid-code-keyboard=1&sid-highlight=1",
         "./document_settings.js?v=sid-working-saved-1",
-        "./editor.js?sid-song-manual=1",
+        "./editor.js?sid-song-manual=1&sid-highlight=1",
         "./handoff.js?sid-waves=1",
+        "./live_highlight.js?sid-highlight=1",
         "./preset.js?sid-waves=1",
-        "./sid_import.js?sid-song-manual=1",
+        "./sid_import.js?sid-song-manual=1&sid-highlight=1",
         "./sid_import_panel.js?sid-channels=2&sid-code-live=1",
-        "./sid_live_view.js?sid-song-manual=1"
+        "./sid_live_view.js?sid-song-manual=1&sid-highlight=1"
       ]
     },
     {
@@ -997,6 +1008,13 @@
       "localImports": [
         "../js/soundchip_pitch.js"
       ]
+    },
+    {
+      "path": "synth/synth_live_highlight.js",
+      "sourcePath": "docs/synth/synth_live_highlight.js",
+      "bytes": 3330,
+      "sha256": "b4e7c5e6245820d8d6a65af984d176739f3360887b2c2928fb0117a52c689c19",
+      "localImports": []
     },
     {
       "path": "synth/synth_menu.js",
@@ -1495,8 +1513,8 @@
     },
     {
       "path": "docs/synth-sid/README.md",
-      "bytes": 32851,
-      "sha256": "32f107e6a6bf2cfd116a4289429d60a5772da38dc59823915020d3b2f1009921"
+      "bytes": 33523,
+      "sha256": "889bf91b8c212f6d48c069636d487e90bb31630e8d9851a0161cc06288cc1d27"
     },
     {
       "path": "docs/synth-sid/audio.js",
@@ -1535,8 +1553,8 @@
     },
     {
       "path": "docs/synth-sid/code_live.js",
-      "bytes": 3782,
-      "sha256": "468f76037f0c0da3fe81b8059a0814e9b7e23a26faf7ee1dd1f874ecf5d91e4d"
+      "bytes": 3798,
+      "sha256": "53578adf8d92ddadaebb8c125bc4df686c8d1c70e26a3baa89d69623bc20df90"
     },
     {
       "path": "docs/synth-sid/code_project.js",
@@ -1555,8 +1573,8 @@
     },
     {
       "path": "docs/synth-sid/editor.js",
-      "bytes": 21283,
-      "sha256": "a5da13011b57a9b4a1ddec57868520df32f635f393cba0dff4b8204f2be02119"
+      "bytes": 22371,
+      "sha256": "2d52f457855c4614f8bf8d769413e0cff20359100a3196cdb74ba873e9350e49"
     },
     {
       "path": "docs/synth-sid/handoff.js",
@@ -1565,13 +1583,18 @@
     },
     {
       "path": "docs/synth-sid/index.html",
-      "bytes": 19933,
-      "sha256": "ef68466c474001fee7bdb48253b09bcfb2e6a3561cbd87ebd7bcb5fd9bb69001"
+      "bytes": 20350,
+      "sha256": "69a83bb15a8de9004d5ab43d6c6280d355002ce8793212275a6e38c3de4b55bd"
     },
     {
       "path": "docs/synth-sid/instrument.js",
       "bytes": 20031,
       "sha256": "cdf256e00270e07d294fa132075db22bb039bc80e761686068f79e57c43ae8f6"
+    },
+    {
+      "path": "docs/synth-sid/live_highlight.js",
+      "bytes": 3333,
+      "sha256": "7b8f73c964bd6903bc619ced2f24e7b7b8da8c8481e08ffb59d35276e9cdab3b"
     },
     {
       "path": "docs/synth-sid/preset.js",
@@ -1585,8 +1608,8 @@
     },
     {
       "path": "docs/synth-sid/sid_import.js",
-      "bytes": 26257,
-      "sha256": "8c246c1fc24fd4aeebb8adb193004a83a12ae5e8ec8661effa1bcc7f79211e0c"
+      "bytes": 26278,
+      "sha256": "e1e73fd426ba6aa5810c9947df2f6ff380ebba663209ddc33103af5110d2fd7f"
     },
     {
       "path": "docs/synth-sid/sid_import_panel.js",
@@ -1595,18 +1618,18 @@
     },
     {
       "path": "docs/synth-sid/sid_live_view.js",
-      "bytes": 14131,
-      "sha256": "62bca3c31a2f656f7106517fd4fd6944735224c114a99caa32c53eabb010f64f"
+      "bytes": 14597,
+      "sha256": "a72b0eb3ffe12e14ae524ca583b4920d51202d140f887cddf6facab99821dd69"
     },
     {
       "path": "docs/synth-sid/synth.css",
-      "bytes": 22129,
-      "sha256": "3573911320b106ce730ba79c9f578b921840597d619f22b1143b64cf553dd419"
+      "bytes": 22073,
+      "sha256": "d359288ee70124db163aeb8cfccfdd5b6c4dd13d7946e57068bf6e98e979cafb"
     },
     {
       "path": "docs/synth-sid/synth.js",
-      "bytes": 46457,
-      "sha256": "f94d8624369e26226eda6fbd3103174a396c389b0ac67abe55888ccbfb5d1d2f"
+      "bytes": 48506,
+      "sha256": "2811cfe71fd458d184bc1f9963b9487c9c6ff36cbbbdff0d71f9644082268ffd"
     },
     {
       "path": "docs/synth-spu/file_context_menu.js",
@@ -1667,6 +1690,11 @@
       "path": "docs/synth/synth_keyboard.js",
       "bytes": 10010,
       "sha256": "b7dc1daea64aa6e061bfdb2295010ee24eddaba51ab7ab6cf87c0f751be7c795"
+    },
+    {
+      "path": "docs/synth/synth_live_highlight.js",
+      "bytes": 3330,
+      "sha256": "b4e7c5e6245820d8d6a65af984d176739f3360887b2c2928fb0117a52c689c19"
     },
     {
       "path": "docs/synth/synth_menu.js",
@@ -2501,7 +2529,7 @@
   ],
   "sourceArchive": {
     "path": "sources/sid-synth-browser-inputs.zip",
-    "bytes": 1533304,
-    "sha256": "e41af60966399f7b7e6b6e7a2b9a627fc4e86c926ee5819bad04629ef409fd53"
+    "bytes": 1537636,
+    "sha256": "ea589f649a5889dc692e149716ec475fc4f0470080df6c76f4d2e7eb5606563d"
   }
 }
