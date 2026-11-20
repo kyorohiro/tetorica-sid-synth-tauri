@@ -241,7 +241,7 @@ export function nativeVoiceChannel(chip,{method,type,args=[],channel,psgRegister
   }
   if(method==='reset')return 'all';return null;
 }
-export function createProcessorPerformance({apply,prepare,validate,onDiscard,onBlocked,chip,releaseNote,getPsgLatch,getPsgMode,getHucChannel,getRfChannel,getRfMask,getOpllRhythm,getAyRegisters,getOplRegisters,getWonderSwanRegisters,getPokeyRegisters,trackImmediateNotes=true,immediate = [],nowFrame = () => currentFrame,rate = sampleRate}) {
+export function createProcessorPerformance({apply,prepare,validate,patternCommandCost,onDiscard,onBlocked,chip,releaseNote,getPsgLatch,getPsgMode,getHucChannel,getRfChannel,getRfMask,getOpllRhythm,getAyRegisters,getOplRegisters,getWonderSwanRegisters,getPokeyRegisters,trackImmediateNotes=true,immediate = [],nowFrame = () => currentFrame,rate = sampleRate}) {
   const replies = new WeakMap(),ports = new WeakMap(),pendingRPC = new WeakMap(),immediateMethods = new Set(immediate);
   const owners=new Map(),auditions=new Map();
   let psgLatch=0,nesEnabled=0;
@@ -285,12 +285,15 @@ export function createProcessorPerformance({apply,prepare,validate,onDiscard,onB
     command=protectWonderSwanControl(command,metadata);
     // Editor parameter patches retain a script's note owner even when a banked
     // control register repeats its existing gate bit. Triggers/releases do not.
-    if(!metadata?.preserveOwner&&!note(command,port,metadata))return false;
+    if(!metadata?.preserveOwner&&!(chipName()==='sid'&&command.preserveOwner===true)&&!note(command,port,metadata))return false;
     apply(command,port,frame,metadata); observePsgLatch(command);
     return true;
   }
   function blockedByAudition(command,metadata) {
     if(!auditions.size)return false;
+    // Explicit timed chip edits follow actual application order. Note ownership
+    // below still protects newer manual Gates from an old scheduled release.
+    if(['ay8910','huc6280','wonderswan','gameboy','sid'].includes(chipName())&&metadata?.timedOperation)return false;
     // PSG noise rate 3 uses tone channel 3's divider. A held noise key owns
     // that divider as well, while the tone channel's volume remains editable.
     if(chipName()==='segapsg'&&command.method==='write'&&auditions.has(3)&&(getPsgMode?.()&3)===3){
@@ -330,6 +333,7 @@ export function createProcessorPerformance({apply,prepare,validate,onDiscard,onB
     return {...command,args:[0x0e,(command.args[1]&~mask)|((getOpllRhythm?.()??0)&mask)]};
   }
   function protectAyMixer(command,metadata){
+    if(metadata?.timedOperation)return command;
     if(!auditions.size||chipName()!=='ay8910'||command.method!=='writeRegister'||command.args[0]!==7)return command;
     let mask=0;for(const [channel,owner]of auditions)if(owner!==metadata?.owner)mask|=(1<<channel)|(8<<channel);
     return {...command,args:[7,(command.args[1]&~mask)|((getAyRegisters?.()?.[7]??0x38)&mask)]};
@@ -340,6 +344,7 @@ export function createProcessorPerformance({apply,prepare,validate,onDiscard,onB
     if(!mask)return command;return {...command,args:[8,(command.args[1]&~mask)|(getOplRegisters()[8]&mask),...(command.args.length>2?[command.args[2]]:[])]};
   }
   function protectWonderSwanControl(command,metadata){
+    if(metadata?.timedOperation)return command;
     if(!auditions.size||chipName()!=='wonderswan'||command.method!=='writeRegister'||command.args[0]!==0x90)return command;
     let mask=0;for(const [channel,owner]of auditions)if(owner!==metadata?.owner)mask|=(1<<channel)|([0,0x20,0x40,0x80][channel]??0);
     const controlMask=(command.controlMask??255)&~mask;
@@ -368,11 +373,12 @@ export function createProcessorPerformance({apply,prepare,validate,onDiscard,onB
     // A newly acquired editor lease may release the old physical key before
     // retriggering it. Other owners still cannot send a stale release.
     const manualOwner=manualNoteOwner(event.key,metadata);
-    if(!event.on&&metadata&&previous&&previous.owner!==metadata.owner&&!manualOwner)return false;
+    if(!event.on&&metadata&&previous&&previous.owner!==metadata.owner&&!manualOwner&&
+      !(chipName()==='sid'&&metadata.timedOperation&&metadata.sidReleaseAllowed===true))return false;
     if(event.on)owners.set(event.key,{owner:metadata?.owner??null,port});else owners.delete(event.key);
     return true;
   }
-  const queue = createPerformanceQueue({sampleRate:rate,nowFrame,validate,
+  const queue = createPerformanceQueue({sampleRate:rate,nowFrame,validate,patternCommandCost,
     onDiscard(command,metadata) {
       const pending=pendingRPC.get(command);
       if(pending){pendingRPC.delete(command);pending.postMessage({id:command.id,error:'Performance command cancelled',name:'AbortError'});}
@@ -460,6 +466,14 @@ export function createProcessorPerformance({apply,prepare,validate,onDiscard,onB
     beginAudition(channel,owner){auditions.set(channel,owner);},
     endAudition(channel,owner){if(auditions.get(channel)===owner)auditions.delete(channel);},
     applyImmediate(command,port,metadata){return applyTracked(command,port,nowFrame(),metadata);},
+    schedulePattern:queue.schedulePattern,
+    validatePattern:queue.validatePattern,
+    clearPattern:queue.clearPattern,
+    clearPatterns:queue.clearPatterns,
+    commitPatterns:queue.commitPatterns,
+    cancelPatternOwner:queue.cancelPatternOwner,
+    cancelOwner:queue.cancelOwner,
+    nowFrame,
     clear(){queue.clear();owners.clear();auditions.clear();},
     getStats:queue.getStats,
   };

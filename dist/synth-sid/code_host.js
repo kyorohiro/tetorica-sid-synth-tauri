@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Glue for the shared Code editor/scheduler and this Synth's existing SID.
 import {createPlaygroundCodeRuntime} from '../js/playground_code_runtime.js?v=ps1-vab-api-1';
-import {setupSynthCodeControls} from '../synth/synth_code_controls.js?v=draft-reconnect-1';
+import {setupSynthCodeControls} from '../synth/synth_code_controls.js?v=huc-working-saved-1';
 import {selectSidCodeDeclarations} from './code_declarations.js?sid-code=1';
 import {createSidCodeAudio} from './code_audio.js?sid-code=1';
-import {createSidCodeProject} from './code_project.js?v=draft-reconnect-1';
-import {setupSidCodeFiles} from './code_files.js?sid-code=1&sid-live-preset=2&draft-reconnect=1';
+import {createSidCodeProject,SID_PROJECT_FILE_BYTES} from './code_project.js?v=sid-working-saved-1';
+import {setupSidCodeFiles} from './code_files.js?v=sid-working-saved-1';
+import {SID_TIMED_EXAMPLES} from './code_examples.js';
 
 export const SID_STARTER_CODE=`const sid = await useSoundChip("sid");
 setBpm(120);
@@ -74,10 +75,10 @@ liveLoop("filter", async () => {
 });
 `;
 const aborted=()=>new DOMException('SID Code stopped','AbortError');
-export function setupSidCodeHost({ensureAudio,getAudio,getSettings,applySettings,stopKeyboard,stopSong,
-  beforeSoundApply=stopSong,beforeRun=async()=>{},prepareOutput=async()=>{},onActivity=()=>{},setStatus=()=>{}}={}) {
+export function setupSidCodeHost({ensureAudio,getAudio,getSettings,getSaveSoundSettings=getSettings,applySettings,stopKeyboard,stopSong,
+  beforeSoundApply=stopSong,beforeRun=async()=>{},prepareOutput=async()=>{},onActivity=()=>{},onViewChange=()=>{},onExpandedChange=()=>{},setStatus=()=>{}}={}) {
   let disposed=false,epoch=0,modeEpoch=0,runtime=null,controls=null,files=null;
-  const project=createSidCodeProject({settings:getSettings(),getStarterCode:()=>SID_STARTER_CODE});
+  const project=createSidCodeProject({settings:getSettings(),getStarterCode:()=>SID_STARTER_CODE,starterFiles:SID_TIMED_EXAMPLES});
   const audio=createSidCodeAudio({ensureReady:ensureAudio,getAudio,onLog:line=>controls?.appendLog(line)});
   const valid=token=>{if(disposed||token!==epoch)throw aborted();};
   function openOutput(){
@@ -93,7 +94,7 @@ export function setupSidCodeHost({ensureAudio,getAudio,getSettings,applySettings
     if(!disposed&&request===modeEpoch&&!runtime?.getState().running)audio.open();
     onActivity();
   }
-  files=setupSidCodeFiles({project,getSettings,applySettings,setStatus,
+  files=setupSidCodeFiles({project,getSettings,getSaveSoundSettings,applySettings,setStatus,
     async onBeforeSoundApply(){await beforeSoundApply();if(!runtime?.getState().running)await stopKeyboard();},
     async onBeforeWorkspaceReplace(){await stop();await stopSong();await stopKeyboard();}});
   function getRuntime() {
@@ -108,7 +109,7 @@ export function setupSidCodeHost({ensureAudio,getAudio,getSettings,applySettings
       },
       now:()=>getAudio()?.context.currentTime??0,
       useSoundChip:name=>audio.useSoundChip(name),fx:audio.fx,
-      readFile:(...args)=>project.readFile(...args),prepareSource:(...args)=>project.prepareSource(...args),
+      readFile:(...args)=>project.readSavedFile(...args),prepareSource:(...args)=>project.prepareSavedSource(...args),
       onLog:line=>controls?.appendLog(line),onState:state=>{controls?.setRuntimeState(state);onActivity();},
       beforeStopSoundChips(){epoch++;return audio.beforeStop();},
       async stopSoundChips(){
@@ -125,7 +126,8 @@ export function setupSidCodeHost({ensureAudio,getAudio,getSettings,applySettings
     return runtime;
   }
   controls=setupSynthCodeControls({project,files,getRuntime,
-    keepRunningOnKeyboard:true,
+    keepRunningOnKeyboard:true,persistentExpanded:true,
+    allowTextFiles:true,maxTextLength:SID_PROJECT_FILE_BYTES,writeText:(path,source)=>project.writeEditorText(path,source),
     editorChip:'c64',transformDeclarations:selectSidCodeDeclarations,
     journalKey:'tetorica-sid-synth-pending-code',getStarterCode:()=>SID_STARTER_CODE,
     async onBeforeRun(){
@@ -136,12 +138,15 @@ export function setupSidCodeHost({ensureAudio,getAudio,getSettings,applySettings
     async onModeChange(){
       modeEpoch++;openOutput();
       onActivity();
-    },setStatus,
+    },onViewChange,onExpandedChange,setStatus,
   });
-  return {project,files,controls,ready:controls.ready,
+  const ready=controls.ready.then(()=>{
+    if(!disposed)try{project.ensureStarterFiles();}catch(error){setStatus(`Examples were not added: ${error.message}`);}
+  });
+  return {project,files,controls,ready,
     isCodeMode:()=>controls.isCodeMode(),isRunning:()=>Boolean(runtime?.getState().running),
     getState:()=>runtime?.getState()??{state:'idle',running:false},
-    stop,openOutput,markSoundDirty:()=>files.markSoundDirty(),
+    stop,openOutput,markSoundDirty:(value)=>files.markSoundDirty(value),
     async dispose(){if(disposed)return;await stop();disposed=true;epoch++;controls.dispose();await files.dispose();await audio.dispose();},
   };
 }

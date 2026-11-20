@@ -85,13 +85,58 @@ the keyboard. The Code tab supports
 after the chip in host software. There is no implicit `play()` or independent
 chip factory here; acquire the SID through `useSoundChip("sid")` and await its
 acknowledged controls. Existing **Copy JavaScript** still targets the full C64
-Playground separately. Maximize Code places the same editor beside Files.
+Playground separately.
+
+The **Code / Synth** layout buttons beside Files open or restore the workspace.
+Expanded tabs are **Code / SID / Keyboard**. Switching between them retains the
+expanded layout and the same performance; **Synth** or **Restore Code** returns
+to the normal layout. The original Master and shared Run / Apply / Stop row stay
+accessible in every expanded view. The same editor/model, controls and output
+route move between their anchors; no second instrument is created. Showing Code
+alone never starts it, and changing layout preserves working/saved Files and SID
+Play/Pause position. Arrow keys / Home / End navigate the expanded tabs.
 
 Choosing Code keeps focus on the tab, so computer-key performance remains
 available outside the editor and after Stop. Click inside the editor to type;
 text/number inputs, selects and dialogs keep their keys. Musical waits use
 `beat()` and follow `setBpm()`; the default modulation's `tween()` periods
 deliberately remain in seconds. Existing saved scripts are kept.
+
+### Timed register operations
+
+Files includes `examples/timed-voice.js`, `examples/timed-filter.js` and
+`examples/compare-register-writes.js`. Select one, open Code, then Run.
+`sid.build(b => ...)` records the existing voice, filter, frequency, note and
+raw register calls once, without touching the chip. `atSeconds()` and
+`atSample()` set absolute offsets; samples use a 44100 Hz reference by default,
+independent of the output device and BPM.
+
+`await sid.schedule(operations, {name, repeatSeconds})` executes on the
+AudioWorklet sample clock. Apply replaces a named reservation atomically;
+`await sid.clearSchedule(name)` cancels it. An invalid or failed Apply keeps
+the earlier reservation. Stop and loop cleanup retire their reservations.
+Partial control/filter edits resolve against actual registers when applied,
+so they preserve intervening changes to other bits. A later manual Gate owns
+its channel; an older reservation's Off/cancel cannot release that newer note.
+
+`await sid.compile(operations)` returns structured register-write rows from
+one coherent renderer state, without changing sound. Reuse a detached
+`await sid.captureState()` with `{initialState: snapshot}` to compare programs
+from exactly the same baseline. `{initialState: "reset"}` uses uninitialized
+hardware reset state; high-level methods still require initialization, so use
+raw writes for a reset-baseline trace. These snapshots are operation-resolution
+state, not oscillator/envelope or C64 save states. Actual playback may differ
+when another writer intervenes.
+
+Shared Playground/npm clients additionally support `{initialState: "client"}`
+from their local register shadow; it can lag scheduled/other-writer operations.
+The borrowed Synth deliberately rejects that mode because it has no complete
+client shadow. Current capture is asynchronous while audio keeps running;
+reset/supplied-snapshot compilation needs no renderer request. Snapshots from
+another chip instance, model or clock are rejected. A successful 6581/8580
+replacement cancels old reservations and retains the same Code client; a
+failed model preparation retains the previous performance. Timed SID execution
+requires Web Audio; no JavaScript timer or Native fallback is provided.
 
 Selecting a sound JSON in **Files**, loading a preset or changing its voice
 settings keeps the current Run, loops, `context`, preparations and software FX.
@@ -123,29 +168,56 @@ to 20/s, so register writes between observations can be missed; 8580 continues
 to show its unavailable Envelope as unavailable.
 
 **Files** keeps `/index.js`, local modules, text/JSON and opaque binary files.
-Create or select a `.js` / `.mjs` file to edit it in Code. Use dynamic local
-imports such as `await import("./lib/notes.js")`, and `await file("./data/notes.json",
-{type:"json"})` for data relative to the active file. Other text files have a
-small Files editor. Text edits save locally; saving, restoring or importing
-files never runs them. JavaScript files are limited to 2 MiB.
+Text and JSON use the same Code editor as JavaScript. Selecting a file does not
+switch Keyboard to Code or run it. Use dynamic local imports such as
+`await import("./lib/notes.js")` and `await file("./data/notes.json", {type:"json"})`.
+Explicit Run / Apply reads the **saved** entry, modules and data. JavaScript
+files are limited to 2 MiB; the complete project fits the 16 MiB Cassette limit.
 
-**Save sound** writes all three current patches to
-`/presets/current.sid-channels.json`. Selecting a supported voice/setup JSON
-applies its settings after stopping the preceding performance. Editing its text
-does not apply it automatically: select it again when ready. Legacy JSON files
-and unfinished text remain unchanged in Files; invalid sound selections keep
-the current instrument. Existing voice/setup save buttons and formats still work.
+Files starts with **Auto apply** On. Valid sound JSON and deliberate author
+control edits update the linked instrument and accepted sound. Turn it Off to
+keep a **working** draft separately: the controls show the draft, while keys,
+Code and audio startup retain the accepted sound. Modified paths have a **●**.
+**Save** (Ctrl/Cmd+S), **Save all**, **Discard** and **Discard all** accept or
+restore files. Save never runs source or stops active Code / SID playback.
+Unfinished JSON stays editable and never replaces a valid sound. If an otherwise
+valid Auto apply change is rejected by audio, Auto apply pauses Off and keeps
+that working draft alongside its previous accepted source for Save retry or
+Discard. Accepted-in-memory content and successful local storage are distinct.
 
-**Export project** creates a self-contained Cassette ZIP with the authored
-channel setup, code selection and every project file. **Import project** checks
-the complete candidate before replacing Files or the instrument. The common
-Cassette loader's 16 MiB compressed/expanded limits apply. Imported `.sid` or
-other binary data remains a file; it does not start song preview. Use the
-separate **Load SID…** controls for song playback. Local recovery uses a SID-only
-IndexedDB store, with a localStorage fallback; export a project for a portable
-backup. The optional Monaco editor loads from its CDN; basic text editing and
-Run remain available if that editor cannot load. Runtime sources and type
-declarations used by definition navigation are included locally in the ZIP.
+**＋ Instrument** creates a named three-channel JSON in `presets/` and links
+it to your controls; **＋ JS** creates a script. An explicit `.sid-voice.json`
+name creates a portable voice instead. Right-click files/folders for Duplicate,
+Rename, Delete, new files/folders or Undo file operation. **Saved sounds** lists
+playable JSON presets. A linked portable voice remains a voice document; a
+linked setup remains a three-channel setup. Compatible legacy schemas remain
+legacy on edits; 8580 or Legato requires their newer format. Merely selecting
+or restoring old files preserves their original bytes.
+
+Channel selection never homogenizes the three voices. Saving a changed field
+preserves unrelated physical Code edits, Gate, pitch and the other channels.
+Code Live remains a physical-channel intervention: with Auto apply On its
+accepted manual edits are recorded; with manual saving it retains the pending
+author document. **＋ Instrument** can explicitly snapshot that accepted Code
+bank. Waveform combinations, Sync/Ring and the filter still use the SID rules.
+The existing standalone voice/setup download buttons and JSON formats remain.
+
+**Menu → Export → Cassette · ZIP** contains normal saved files plus working
+recovery differences and both sound caches. Unchanged SID binaries are stored
+once. **Menu → Import → Cassette · ZIP…** validates a complete candidate before
+replacement; **Menu → New → Cassette…** creates the default sound and starter
+Code. Both offer a backup; canceling its native save keeps the current project
+and performance. Only a committed project replacement retires the old Code/song
+owner. Neither importing nor restoring automatically runs Code or plays a song.
+Original v1 SID projects migrate to this two-version form without rewriting
+source files. Imported `.sid` data remains opaque; **Load SID…** is still the
+explicit song-preview action.
+
+Local recovery uses a SID-only IndexedDB store, a compact pending-edit journal
+and a localStorage fallback. Export Cassette for a portable backup, especially
+if local storage is unavailable. The optional Monaco editor loads from its CDN;
+basic editing and Run remain available if it cannot load. Readable runtime
+sources and definition-navigation declarations remain local in the ZIP.
 
 ## Open a SID and use its sound
 
