@@ -1,6 +1,6 @@
 {
   "name": "tetorica-sid-synth-tauri",
-  "version": "0.99.992",
+  "version": "0.99.993",
   "private": true,
   "scripts": {
     "dev": "tauri dev --no-dev-server",

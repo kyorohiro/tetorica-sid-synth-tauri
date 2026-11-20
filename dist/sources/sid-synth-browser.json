@@ -16,8 +16,8 @@
     {
       "path": "synth-sid/synth.js",
       "sourcePath": "docs/synth-sid/synth.js",
-      "bytes": 48506,
-      "sha256": "2811cfe71fd458d184bc1f9963b9487c9c6ff36cbbbdff0d71f9644082268ffd",
+      "bytes": 48553,
+      "sha256": "0093e73c129f49574fbec57aa7b1dbd77448c6ae972d6e667c6292a77b8da9a5",
       "localImports": [
         "../sid-player/voice_snapshot.js?sid-waves=1",
         "../synth-spu/spu_synth_visualizer.js",
@@ -34,7 +34,7 @@
         "./live_highlight.js?sid-highlight=1",
         "./preset.js?sid-waves=1",
         "./sid_import.js?sid-song-manual=1&sid-highlight=1",
-        "./sid_import_panel.js?sid-channels=2&sid-code-live=1",
+        "./sid_import_panel.js?sid-channels=2&sid-code-live=1&sid-menu-import=1",
         "./sid_live_view.js?sid-song-manual=1&sid-highlight=1"
       ]
     },
@@ -868,8 +868,8 @@
     {
       "path": "synth-sid/sid_import_panel.js",
       "sourcePath": "docs/synth-sid/sid_import_panel.js",
-      "bytes": 7048,
-      "sha256": "0f0a9b5c9c0bb4001fa457a04d87a1fdf468cc811b98ef7907ecb87c7ba2cc76",
+      "bytes": 7111,
+      "sha256": "9b57f19dacae15bc68f6f06af493588c192218d15dd81248601266e72c6d38d5",
       "localImports": []
     },
     {
@@ -893,8 +893,8 @@
     {
       "path": "synth-sid/synth.js",
       "sourcePath": "docs/synth-sid/synth.js",
-      "bytes": 48506,
-      "sha256": "2811cfe71fd458d184bc1f9963b9487c9c6ff36cbbbdff0d71f9644082268ffd",
+      "bytes": 48553,
+      "sha256": "0093e73c129f49574fbec57aa7b1dbd77448c6ae972d6e667c6292a77b8da9a5",
       "localImports": [
         "../sid-player/voice_snapshot.js?sid-waves=1",
         "../synth-spu/spu_synth_visualizer.js",
@@ -911,7 +911,7 @@
         "./live_highlight.js?sid-highlight=1",
         "./preset.js?sid-waves=1",
         "./sid_import.js?sid-song-manual=1&sid-highlight=1",
-        "./sid_import_panel.js?sid-channels=2&sid-code-live=1",
+        "./sid_import_panel.js?sid-channels=2&sid-code-live=1&sid-menu-import=1",
         "./sid_live_view.js?sid-song-manual=1&sid-highlight=1"
       ]
     },
@@ -1513,8 +1513,8 @@
     },
     {
       "path": "docs/synth-sid/README.md",
-      "bytes": 33523,
-      "sha256": "889bf91b8c212f6d48c069636d487e90bb31630e8d9851a0161cc06288cc1d27"
+      "bytes": 33563,
+      "sha256": "37bf1a8c644a88d8f1113a4ec9c61d4cb05aad19dfd07e23776da26e4824d66f"
     },
     {
       "path": "docs/synth-sid/audio.js",
@@ -1583,8 +1583,8 @@
     },
     {
       "path": "docs/synth-sid/index.html",
-      "bytes": 20350,
-      "sha256": "69a83bb15a8de9004d5ab43d6c6280d355002ce8793212275a6e38c3de4b55bd"
+      "bytes": 20376,
+      "sha256": "7f19c12cc38114284b08b49c34a52f01f2514f7ec3c1836e32e4a5868a8cacca"
     },
     {
       "path": "docs/synth-sid/instrument.js",
@@ -1613,8 +1613,8 @@
     },
     {
       "path": "docs/synth-sid/sid_import_panel.js",
-      "bytes": 7048,
-      "sha256": "0f0a9b5c9c0bb4001fa457a04d87a1fdf468cc811b98ef7907ecb87c7ba2cc76"
+      "bytes": 7111,
+      "sha256": "9b57f19dacae15bc68f6f06af493588c192218d15dd81248601266e72c6d38d5"
     },
     {
       "path": "docs/synth-sid/sid_live_view.js",
@@ -1628,8 +1628,8 @@
     },
     {
       "path": "docs/synth-sid/synth.js",
-      "bytes": 48506,
-      "sha256": "2811cfe71fd458d184bc1f9963b9487c9c6ff36cbbbdff0d71f9644082268ffd"
+      "bytes": 48553,
+      "sha256": "0093e73c129f49574fbec57aa7b1dbd77448c6ae972d6e667c6292a77b8da9a5"
     },
     {
       "path": "docs/synth-spu/file_context_menu.js",
@@ -2529,7 +2529,7 @@
   ],
   "sourceArchive": {
     "path": "sources/sid-synth-browser-inputs.zip",
-    "bytes": 1537636,
-    "sha256": "ea589f649a5889dc692e149716ec475fc4f0470080df6c76f4d2e7eb5606563d"
+    "bytes": 1537715,
+    "sha256": "16eb79d8f8470d42dd605001709544cbec12a95a480fa1ea9919c781742d8188"
   }
 }
