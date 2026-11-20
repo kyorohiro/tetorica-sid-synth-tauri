@@ -46,8 +46,8 @@
       dialog.append(message, cancel, confirm); document.body.append(dialog); dialog.showModal(); cancel.focus();
     });
   }
-  // The packaged browser assets stay unchanged. Add the same desktop toolbar
-  // used by FM2612 / SPU, using the SID app's palette.
+  // The packaged browser assets stay unchanged. Extend their menu when one is
+  // supplied, and build the desktop menu only for older releases without it.
   function ensureToolbarHost() {
     if (document.getElementById('synthDesktopTools')) return;
     const title = document.querySelector('.title-row');
@@ -70,6 +70,11 @@
     const load = document.getElementById('loadPreset'), save = document.getElementById('savePreset');
     const presetInput = document.getElementById('presetFileInput');
     if (!identity || !pin || !audio || !reload || !load || !save || !presetInput) return;
+    let menu = document.getElementById('synthMenu');
+    const suppliedMenu = Boolean(menu);
+    let button = document.getElementById('synthMenuButton');
+    let panel = menu?.querySelector('.synth-menu-panel');
+    if (suppliedMenu && (!button || !menu.contains(button) || !panel)) return;
     host.dataset.toolbarMounted = 'true';
     const style = document.createElement('style');
     style.textContent = `
@@ -90,14 +95,19 @@
       .synth-menu-actions .toolbar-button { text-align:left; padding:8px 10px; min-height:32px; }
     `;
     document.head.append(style);
-    const menu = document.createElement('details');
-    menu.id = 'synthMenu'; menu.className = 'synth-menu';
-    menu.innerHTML = `<summary id="synthMenuButton" class="synth-icon-button" aria-label="Menu" title="Menu" aria-expanded="false" aria-controls="synthMenuPanel">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-      </summary><div id="synthMenuPanel" class="synth-menu-panel"></div>`;
+    if (!suppliedMenu) {
+      menu = document.createElement('details');
+      menu.id = 'synthMenu'; menu.className = 'synth-menu';
+      button = document.createElement('summary');
+      button.id = 'synthMenuButton'; button.className = 'synth-icon-button';
+      button.title = 'Menu'; button.setAttribute('aria-label', 'Menu');
+      button.setAttribute('aria-expanded', 'false'); button.setAttribute('aria-controls', 'synthMenuPanel');
+      button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+      panel = document.createElement('div'); panel.id = 'synthMenuPanel'; panel.className = 'synth-menu-panel';
+      menu.append(button, panel);
+    }
     pin.classList.add('synth-icon-button');
     pin.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path class="pin-head" d="M9 3h6v5l3 5v2H6v-2l3-5z"/><path d="M12 15v7"/></svg>';
-    const panel = menu.querySelector('.synth-menu-panel');
     function section(title, control, label) {
       const section = document.createElement('section'); section.className = 'synth-menu-section synth-menu-actions';
       if (title) { const heading = document.createElement('h2'); heading.textContent = title; section.append(heading); }
@@ -108,34 +118,48 @@
       }
       panel.append(section); return section;
     }
-    const imports = section('Import', load, 'Voice / channel setup · SID preset…'); imports.append(presetInput);
-    for (const [id, originalId, cardId, label] of [
-      ['synthMenuSid', 'loadSidSound', 'sidImportTools', 'Sounds · SID file…'],
-    ]) {
-      const original = document.getElementById(originalId);
-      if (!original) continue;
-      const button = document.createElement('button'); button.id = id; button.type = 'button';
-      button.className = 'toolbar-button'; button.dataset.closeSynthMenu = ''; button.textContent = label;
-      button.addEventListener('click', () => {
-        button.blur();
-        const card = document.getElementById(cardId);
+    function actions(title, slotId) {
+      const slot = document.getElementById(slotId);
+      const existing = slot && panel.contains(slot) ? slot.closest('.synth-menu-section') : null;
+      return existing?.querySelector('.synth-menu-actions') ?? existing ?? section(title);
+    }
+    function addAction(parent, control, label) {
+      control.classList.add('toolbar-button'); control.dataset.closeSynthMenu = '';
+      if (label) control.textContent = label;
+      parent.append(control);
+    }
+    const imports = actions('Import', 'sidMenuProjectImport');
+    addAction(imports, load, 'Voice / channel setup · SID preset…'); imports.append(presetInput);
+    const original = document.getElementById('loadSidSound');
+    // Current releases provide their own Load SID action. Older releases keep
+    // it in the Sounds card and need a menu shortcut to that existing handler.
+    if (original && !menu.contains(original)) {
+      const shortcut = document.createElement('button'); shortcut.id = 'synthMenuSid'; shortcut.type = 'button';
+      addAction(imports, shortcut, 'Sounds · SID file…');
+      shortcut.addEventListener('click', () => {
+        shortcut.blur();
+        const card = document.getElementById('sidImportTools');
         if (card) card.open = true;
         original.click();
-      }); imports.append(button);
+      });
     }
-    const exports = section('Export', save, 'Selected voice · SID preset…');
+    const exports = actions('Export', 'sidMenuProjectExport');
+    addAction(exports, save, 'Selected voice · SID preset…');
     const channels = document.getElementById('saveChannelSettings');
     if (channels) {
-      channels.classList.add('toolbar-button'); channels.dataset.closeSynthMenu = '';
-      channels.textContent = 'All channels · SID setup…'; exports.append(channels);
+      addAction(exports, channels, 'All channels · SID setup…');
     }
     audio.classList.add('synth-menu-section'); panel.append(audio);
     section(null, reload);
+    if (suppliedMenu) {
+      host.replaceChildren(pin); menu.after(host);
+      // setupSynthMenu owns the supplied menu's focus, close and Escape
+      // handlers. Reusing those handlers also covers the desktop actions.
+      return;
+    }
     host.replaceChildren(menu, pin);
     const group = document.createElement('div'); group.className = 'synth-title-group';
     identity.before(group); group.append(host, identity);
-
-    const button = document.getElementById('synthMenuButton');
     const close = () => {menu.open = false; button.setAttribute('aria-expanded', 'false');};
     menu.addEventListener('toggle', () => button.setAttribute('aria-expanded', String(menu.open)));
     button.addEventListener('pointerdown', event => event.preventDefault());

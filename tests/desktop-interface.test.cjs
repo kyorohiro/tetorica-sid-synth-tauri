@@ -139,6 +139,151 @@ function bootPin({url = 'tauri://localhost/index.html', subframe = false, loadin
 }
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
+// A small DOM fixture for the toolbar's tree operations. Load the shipped HTML
+// so additions to the Web menu are exercised without a browser dependency in
+// the native build matrix.
+function bootToolbar({legacy = false} = {}) {
+  class Element {
+    constructor(tag) {
+      this.tagName = tag.toLowerCase(); this.children = []; this.parentElement = null;
+      this.id = ''; this.className = ''; this.dataset = {}; this.attributes = {};
+      this.style = {}; this.listeners = {}; this.open = false;
+      this.classList = {
+        add: name => {if (!this.className.split(/\s+/).includes(name)) this.className += ' ' + name;},
+        toggle: (name, enabled) => {
+          this.className = this.className.split(/\s+/).filter(value => value && value !== name).concat(enabled ? [name] : []).join(' ');
+        },
+      };
+    }
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+      if (name === 'id') this.id = value;
+      if (name === 'class') this.className = value;
+      if (name.startsWith('data-')) this.dataset[name.slice(5).replace(/-([a-z])/g, (_, char) => char.toUpperCase())] = value;
+    }
+    matches(selector) {
+      if (selector.startsWith('#')) return this.id === selector.slice(1);
+      if (selector.startsWith('.')) return this.className.split(/\s+/).includes(selector.slice(1));
+      if (selector.startsWith('[')) return Object.hasOwn(this.attributes, selector.slice(1, -1)) ||
+        Object.hasOwn(this.dataset, selector.slice(6, -1).replace(/-([a-z])/g, (_, char) => char.toUpperCase()));
+      return this.tagName === selector;
+    }
+    querySelectorAll(selector) {
+      return this.children.filter(child => child instanceof Element).flatMap(child => [
+        ...(child.matches(selector) ? [child] : []), ...child.querySelectorAll(selector),
+      ]);
+    }
+    querySelector(selector) {return this.querySelectorAll(selector)[0] ?? null;}
+    closest(selector) {return this.matches(selector) ? this : this.parentElement?.closest(selector) ?? null;}
+    contains(node) {return node === this || this.children.some(child => child instanceof Element && child.contains(node));}
+    remove() {
+      if (this.parentElement) this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1);
+      this.parentElement = null;
+    }
+    append(...nodes) {
+      for (const node of nodes) {
+        if (node instanceof Element) {node.remove(); node.parentElement = this;}
+        this.children.push(node);
+      }
+    }
+    before(node) {this.insertSibling(node, 0);}
+    after(node) {this.insertSibling(node, 1);}
+    insertSibling(node, offset) {
+      node.remove(); node.parentElement = this.parentElement;
+      this.parentElement.children.splice(this.parentElement.children.indexOf(this) + offset, 0, node);
+    }
+    replaceChildren(...nodes) {for (const child of this.children) if (child instanceof Element) child.parentElement = null; this.children = []; this.append(...nodes);}
+    set textContent(text) {this.replaceChildren(String(text));}
+    get textContent() {return this.children.map(child => typeof child === 'string' ? child : child.textContent).join('');}
+    set innerHTML(text) {this.replaceChildren();}
+    addEventListener(type, callback) {(this.listeners[type] ||= []).push(callback);}
+    click() {for (const callback of this.listeners.click ?? []) callback({target:this});}
+    blur() {}
+    focus() {document.activeElement = this;}
+  }
+  const tree = new Element('document'), stack = [tree];
+  const html = legacy ? `<html><head></head><body><div class="title-row"><div class="product-identity">SID Synth</div></div>
+    <details id="sidImportTools"><button id="loadSidSound">Load SID</button></details>
+    <div><button id="loadPreset">Load preset</button><input id="presetFileInput"><button id="savePreset">Save voice</button><button id="saveChannelSettings">Save setup</button></div>
+    <p id="audioStatus"></p></body></html>` : fs.readFileSync(require('node:path').join(__dirname, '../dist/index.html'), 'utf8');
+  const voidTags = new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+  for (const token of html.matchAll(/<\/?([a-z][\w-]*)([^>]*)>|([^<]+)/gi)) {
+    if (!token[1]) {stack.at(-1).append(token[3]); continue;}
+    const tag = token[1].toLowerCase();
+    if (token[0].startsWith('</')) {
+      const index = stack.findLastIndex(node => node.tagName === tag);
+      if (index > 0) stack.length = index;
+      continue;
+    }
+    const node = new Element(tag);
+    for (const attr of token[2].matchAll(/([:\w-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g)) node.setAttribute(attr[1], attr[2] ?? attr[3] ?? attr[4] ?? '');
+    stack.at(-1).append(node); if (!voidTags.has(tag)) stack.push(node);
+  }
+  const document = {
+    readyState:'complete', head:tree.querySelector('head'), body:tree.querySelector('body'), listeners:{},
+    getElementById:id => tree.querySelector('#' + id), querySelector:selector => tree.querySelector(selector),
+    querySelectorAll:selector => tree.querySelectorAll(selector), createElement:tag => new Element(tag),
+    addEventListener(type, callback) {(this.listeners[type] ||= []).push(callback);},
+  };
+  const window = {listeners:{}, addEventListener(type, callback) {(this.listeners[type] ||= []).push(callback);},
+    __TAURI_INTERNALS__:{invoke:async command => {calls.push(command); return false;}}};
+  window.top = window;
+  const calls = [], originalMenu = document.getElementById('synthMenu');
+  if (originalMenu) {
+    // The imported module installs its own menu handlers before announcing the
+    // desktop bridge. Preserve both the elements and those handler counts.
+    originalMenu.addEventListener('toggle', () => {});
+    document.getElementById('synthMenuButton').addEventListener('pointerdown', () => {});
+    originalMenu.querySelector('.synth-menu-panel').addEventListener('click', () => {});
+    document.addEventListener('pointerdown', () => {}); window.addEventListener('keydown', () => {});
+  }
+  class Anchor {click() {}}
+  vm.runInNewContext(source, {window, document, location:new URL('tauri://localhost/index.html'),
+    URL:{createObjectURL() {}, revokeObjectURL() {}}, HTMLAnchorElement:Anchor, Map, Uint8Array, Array});
+  return {document, window, originalMenu, calls, ready() {for (const callback of window.listeners['tetorica-synth-ready']) callback();}};
+}
+
+test('desktop extends the shipped Web menu once and preserves project and SID import actions', async () => {
+  const ui = bootToolbar(), {document, window, originalMenu} = ui;
+  const get = id => document.getElementById(id);
+  ui.ready(); ui.ready(); await settle();
+  for (const id of ['synthMenu','synthMenuButton','synthMenuPanel','synthPinButton','synthDesktopTools','synthMenuAudio','loadPreset','savePreset','saveChannelSettings','presetFileInput']) {
+    assert.equal(document.querySelectorAll('#' + id).length, 1, id + ' remains unique');
+  }
+  assert.equal(get('synthMenu'), originalMenu);
+  for (const id of ['sidMenuProjectNew','sidMenuProjectImport','sidMenuFilesImport','sidMenuProjectExport','sidMenuFileExport','loadSidSound']) assert.ok(originalMenu.contains(get(id)), id + ' remains in the Web menu');
+  assert.equal(get('synthMenuSid'), null, 'The existing SID import action needs no duplicate shortcut');
+  const importSection = get('sidMenuProjectImport').closest('.synth-menu-section');
+  assert.ok(importSection.contains(get('loadPreset'))); assert.ok(importSection.contains(get('presetFileInput')));
+  const exportSection = get('sidMenuProjectExport').closest('.synth-menu-section');
+  assert.ok(exportSection.contains(get('savePreset'))); assert.ok(exportSection.contains(get('saveChannelSettings')));
+  assert.ok(originalMenu.contains(get('synthMenuAudio')));
+  assert.ok(originalMenu.contains(document.querySelector('[data-reset-offline-cache]')));
+  assert.equal(originalMenu.parentElement, get('synthDesktopTools').parentElement, 'Pin stays beside the existing toolbar menu');
+  assert.equal(originalMenu.listeners.toggle.length, 1);
+  assert.equal(get('synthMenuButton').listeners.pointerdown.length, 1);
+  assert.equal(get('synthMenuPanel').listeners.click.length, 1);
+  assert.equal(document.listeners.pointerdown.length, 1); assert.equal(window.listeners.keydown.length, 1);
+  assert.deepEqual(ui.calls, ['window_pin_state']);
+});
+
+test('older Web releases receive one working desktop menu and a SID import shortcut', async () => {
+  const ui = bootToolbar({legacy:true}), {document, window} = ui;
+  const get = id => document.getElementById(id);
+  ui.ready(); ui.ready(); await settle();
+  const menu = get('synthMenu'), button = get('synthMenuButton');
+  assert.equal(document.querySelectorAll('#synthMenu').length, 1);
+  for (const id of ['loadPreset','savePreset','saveChannelSettings','presetFileInput','synthMenuAudio','synthMenuSid']) assert.ok(menu.contains(get(id)), id + ' is available in the fallback menu');
+  let selections = 0; get('loadSidSound').addEventListener('click', () => selections++);
+  get('synthMenuSid').click(); assert.equal(selections, 1); assert.equal(get('sidImportTools').open, true);
+  assert.equal(menu.listeners.toggle.length, 1); assert.equal(button.listeners.pointerdown.length, 1);
+  menu.open = true; menu.listeners.toggle[0](); assert.equal(button.attributes['aria-expanded'], 'true');
+  window.listeners.keydown[0]({key:'Escape', preventDefault() {}, stopPropagation() {}});
+  assert.equal(menu.open, false); assert.equal(button.attributes['aria-expanded'], 'false'); assert.equal(document.activeElement, button);
+  let saves = 0; get('savePreset').addEventListener('click', () => saves++); get('savePreset').click(); assert.equal(saves, 1);
+  assert.deepEqual(ui.calls, ['window_pin_state']);
+});
+
 test('native pin reads actual state and toggles without taking keyboard focus', async () => {
   for (const url of ['tauri://localhost/index.html', 'http://tauri.localhost/index.html', 'https://tauri.localhost/index.html']) {
     const ui = bootPin({url, initial: true});

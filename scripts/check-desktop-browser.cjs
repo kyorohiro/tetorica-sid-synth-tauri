@@ -133,7 +133,11 @@ async function run(name, engine, backend) {
     check('SID desktop toolbar, Pin, lazy editable Web sources');
     await page.goto(backend+'/index.html');await page.waitForFunction(()=>window.tetoricaSynthAudio&&document.querySelector('#synthPinButton')?.hidden===false&&document.querySelector('#desktop-audio-native'));
     assert.equal(await page.title(),'Tetorica SID Synth');assert.equal(await page.evaluate(()=>desktopAudit.contexts.length),0);
-    assert.equal(await page.locator('#saveChannelSettings').textContent(),'All channels · SID setup…');
+    for(const id of ['synthMenu','synthMenuButton','synthMenuPanel'])assert.equal(await page.locator('#'+id).count(),1,'Only one Web/desktop '+id);
+    assert.equal(await page.locator('#synthMenu #sidProjectNewButton').count(),1,'Retain Web New Cassette action');
+    assert.equal(await page.locator('#synthMenu #sidProjectImportButton').count(),1,'Retain Web Cassette import');
+    assert.equal(await page.locator('#synthMenu #sidProjectExportButton').count(),1,'Retain Web Cassette export');
+    assert.match(await page.locator('#saveChannelSettings').textContent(),/channel.*(?:setup|settings)/i);
     await page.click('#synthPinButton');await page.waitForFunction(()=>document.querySelector('#synthPinButton').getAttribute('aria-pressed')==='true');
     await page.click('#synthPinButton');await page.waitForFunction(()=>document.querySelector('#synthPinButton').getAttribute('aria-pressed')==='false');
     await page.click('#startAudio');await wait(v=>v.model==='6581');await keyboard();
@@ -162,7 +166,9 @@ async function run(name, engine, backend) {
     assert.equal(await page.evaluate(()=>desktopAudit.nativeFinite),true);
     check('native SID song preview follows its separate context; Live inactive fields, Pause and Resume');
     const {createSidPairFixture}=await import('../tests/helpers/sid-fixture.mjs');const fixture=createSidPairFixture({sync:false,ring:false,waveform:'triangle',filterModeMask:0});
-    await menu();const chooser=page.waitForEvent('filechooser');await page.click('#synthMenuSid');await(await chooser).setFiles({name:'desktop.sid',mimeType:'application/octet-stream',buffer:Buffer.from(fixture.bytes)});
+    await menu();const chooser=page.waitForEvent('filechooser');
+    const sidImport=await page.locator('#synthMenu #loadSidSound').count()?'#synthMenu #loadSidSound':'#synthMenuSid';
+    await page.click(sidImport);await(await chooser).setFiles({name:'desktop.sid',mimeType:'application/octet-stream',buffer:Buffer.from(fixture.bytes)});
     await page.waitForFunction(()=>!document.querySelector('#sidImportPlay').disabled);await page.check('#sidLiveEnabled');
     const startsBefore=await page.evaluate(()=>desktopAudit.calls.filter(v=>v.command==='audio_start').length);
     await page.click('#sidImportPlay');await wait(v=>v.playing,'preview');
